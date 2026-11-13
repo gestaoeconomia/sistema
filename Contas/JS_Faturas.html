@@ -1,0 +1,397 @@
+<script>/* pages/faturas */
+const __m_pages_faturas = (() => {
+const { h, limpar, brl, fmtData, fmtDataCurta, rotuloMes, rotuloMesCurto, somarMeses, hoje, lerValor, valorEdicao, primeiroNome, ico } = __m_util;
+const { GET, POST, PUT, DEL, estado, carregarDominios, lerArquivoBase64 } = __m_api;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria } = __m_ui;
+
+/** Mesma regra do servidor (03_Regras.js): fatura = mês de vencimento; compra no dia do fechamento ou depois vai para a fatura seguinte. */
+function faturaSugerida(cartao, data) {
+  if (!cartao || !/^\d{4}-\d{2}-\d{2}$/.test(data || '')) return '';
+  const mes = data.slice(0, 7), dia = Number(data.slice(8, 10)), ultimo = new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate();
+  const fech = Math.min(Number(cartao.dia_fechamento) || 1, ultimo), venc = Number(cartao.dia_vencimento) || 1;
+  const mesFech = dia < fech ? mes : somarMeses(mes, 1);
+  return venc > fech ? mesFech : somarMeses(mesFech, 1);
+}
+
+// ---------- formulários ----------
+const OPC_PARCELAS = Array.from({ length: 48 }, (_, i) => ({ value: i + 1, label: i === 0 ? 'À vista (1x)' : (i + 1) + 'x' }));
+function formCartao(perfil, cartao, aoSalvar) {
+  const novo = !cartao; cartao = cartao || { ativo: 1 };
+  const nome = h('input', { type: 'text', value: cartao.nome || '', maxlength: 40, placeholder: 'ex.: Nubank, Itaú Platinum' }), final = h('input', { type: 'text', value: cartao.final || '', maxlength: 4, inputmode: 'numeric', placeholder: '1234' });
+  const dias = Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: 'Dia ' + (i + 1) }));
+  const fech = select(dias, cartao.dia_fechamento, {}, '—'), venc = select(dias, cartao.dia_vencimento, {}, '—');
+  const ativo = h('input', { type: 'checkbox', checked: cartao.ativo !== 0 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: novo ? 'Novo cartão de crédito' : 'Editar cartão', corpo: h('div', {},
+    h('div', { class: 'form-grade' }, campo('Nome do cartão', nome, { obrig: true }), campo('Final do cartão', final, { dica: 'Opcional — só para diferenciar.' }),
+      campo('Dia do fechamento', fech, { obrig: true, dica: 'Compras desse dia em diante entram na fatura seguinte.' }), campo('Dia do vencimento', venc, { obrig: true })),
+    h('div', { class: 'aviso info' }, 'A fatura é identificada pelo mês em que ', h('b', {}, 'vence'), '. O cartão fica no seu nome (', perfil.nome, ') — só você lança compras nele, mas os dois veem as faturas.'),
+    novo ? null : h('label', { class: 'manter' }, ativo, 'Cartão ativo (desmarque para esconder um cartão cancelado)'), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = '';
+      try { const corpo = { nome: nome.value, final: final.value, dia_fechamento: fech.value, dia_vencimento: venc.value, ativo: ativo.checked };
+        const r = novo ? await POST('/api/cartoes', corpo) : await PUT('/api/cartoes/' + cartao.id, corpo); await carregarDominios(true); c(); toast('Cartão salvo.'); aoSalvar && aoSalvar(r);
+      } catch (e) { msg.textContent = e.message; } } }] });
+}
+function gerenciarCartoes(perfil, dom, aoMudar) {
+  const meus = dom.cartoes.filter(c => c.titular === perfil.email);
+  const corpo = h('div', {}, h('p', { class: 'dica' }, 'Cada um cadastra os próprios cartões. Um cartão com compras lançadas não é apagado: fica desativado e o histórico continua.'),
+    tabela([{ titulo: 'Cartão', f: c => h('span', {}, c.rotulo, c.ativo ? '' : h('span', { class: 'chip', style: { marginLeft: '6px' } }, 'desativado')) }, { titulo: 'Fecha', f: c => 'dia ' + c.dia_fechamento }, { titulo: 'Vence', f: c => 'dia ' + c.dia_vencimento },
+      { titulo: '', f: c => h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', onclick: () => { m.fechar(); formCartao(perfil, c, aoMudar); } }, ico('editar'), 'Editar'),
+        h('button', { class: 'btn perigo mini', type: 'button', onclick: async () => { if (!(await confirmar('Excluir cartão?', `Excluir o cartão ${c.rotulo}? Se já tiver compras, ele só será desativado.`, 'Excluir', true))) return;
+          try { const r = await DEL('/api/cartoes/' + c.id); await carregarDominios(true); m.fechar(); toast(r.mensagem || 'Cartão excluído.'); aoMudar && aoMudar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) }],
+    meus, { vazio: 'Você ainda não cadastrou nenhum cartão.' }));
+  const m = modal({ titulo: 'Meus cartões', corpo, botoes: [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }, { texto: '+ Novo cartão', onclick: c => { c(); formCartao(perfil, null, aoMudar); } }] });
+}
+async function formCompra(perfil, compra, aoSalvar, cartaoInicial) {
+  const dom = await carregarDominios();
+  const meus = dom.cartoes.filter(c => c.titular === perfil.email && (c.ativo === 1 || (compra && c.id === compra.cartao_id)));
+  if (!meus.length) { toast('Cadastre primeiro um cartão seu (Cartões e faturas → Meus cartões).', true); return gerenciarCartoes(perfil, dom, aoSalvar); }
+  const novo = !compra; compra = compra || { data_compra: hoje(), parcelas: 1, divisao: 'DIVIDIDO', cartao_id: (meus.find(c => c.id === cartaoInicial) || meus[0]).id };
+  const cartao = select(meus.map(c => ({ value: c.id, label: c.rotulo })), compra.cartao_id, {}, null);
+  const desc = h('input', { type: 'text', value: compra.descricao || '', maxlength: 120, placeholder: 'ex.: Supermercado, Geladeira…' });
+  const data = h('input', { type: 'date', value: compra.data_compra || hoje() });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(compra.valor_total), placeholder: '0,00' });
+  const nParc = select(OPC_PARCELAS, compra.parcelas || 1, {}, null);
+  const vParc = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(Math.round(compra.valor_total * 100 / (compra.parcelas || 1)) / 100), placeholder: '0,00' });
+  let fonte = 'parcela'; // o último campo digitado (parcela ou total) manda no cálculo do outro
+  const calcular = () => {
+    const n = Number(nParc.value) || 1;
+    if (fonte === 'parcela') { const p = lerValor(vParc.value); valor.value = isNaN(p) || !p ? '' : valorEdicao(Math.round(p * 100) * n / 100); }
+    else { const t = lerValor(valor.value); vParc.value = isNaN(t) || !t ? '' : valorEdicao(Math.round(Math.round(t * 100) / n) / 100); }
+  };
+  vParc.addEventListener('input', () => { fonte = 'parcela'; calcular(); atualizar(); });
+  valor.addEventListener('input', () => { fonte = 'total'; calcular(); });
+  nParc.addEventListener('change', () => { calcular(); atualizar(); });
+  const fatura = h('input', { type: 'month', value: compra.primeira_fatura || '' }); let faturaManual = !novo;
+  const infoParc = h('div', { class: 'dica' }), divisao = segmentos(opcoesDivisao(perfil), compra.divisao || 'DIVIDIDO', () => atualizar());
+  const cat = campoCategoria(dom, compra.categoria), obs = h('input', { type: 'text', value: compra.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  // terceiro: alguém de fora do casal que paga parte da compra
+  const tNome = h('input', { type: 'text', maxlength: 60, value: compra.terceiro || '', placeholder: 'ex.: Mãe, João' });
+  const tValor = h('input', { type: 'text', inputmode: 'decimal', value: compra.terceiro ? valorEdicao(compra.terceiro_valor) : '', placeholder: '0,00' });
+  const tInfo = h('div', { class: 'dica' }), tCaixa = h('div', { class: 'form-grade', style: { display: compra.terceiro ? '' : 'none' } }, campo('Quem paga', tNome), campo('Quanto paga no total (R$)', tValor), h('div', { class: 'cheia' }, tInfo));
+  const tChk = h('input', { type: 'checkbox', checked: !!compra.terceiro, onchange: () => { tCaixa.style.display = tChk.checked ? '' : 'none'; atualizar(); } });
+  const blocoTerceiro = h('div', { class: 'bloco-terceiro' }, h('label', { class: 'chk-linha' }, tChk, h('span', {}, h('b', {}, 'Alguém de fora paga parte desta compra'), h('div', { class: 'dica' }, 'Ex.: comprou para sua mãe e ela vai te devolver. Só o resto entra na divisão do casal.'))), tCaixa);
+  [tNome, tValor].forEach(el => el.addEventListener('input', atualizar));
+  function atualizar() {
+    const vt = lerValor(valor.value), tv = lerValor(tValor.value);
+    tInfo.textContent = tChk.checked && vt > 0 && tv > 0 ? (tv > vt ? 'O terceiro não pode pagar mais que o valor da compra.' : `Fica para vocês: ${brl(Math.round((vt - tv) * 100) / 100)}` + ((Number(nParc.value) || 1) > 1 ? ` · ${tNome.value || 'o terceiro'} paga ≈ ${brl(Math.floor(tv * 100 / (Number(nParc.value) || 1)) / 100)} por parcela.` : '.')) : '';
+    const car = meus.find(c => c.id === cartao.value); if (!faturaManual) fatura.value = faturaSugerida(car, data.value);
+    const v = lerValor(valor.value), n = Number(nParc.value) || 1, div = divisao.valor(), outro = perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)';
+    if (isNaN(v) || !v || !fatura.value) { infoParc.textContent = fatura.value ? `1ª parcela na fatura de ${rotuloMes(fatura.value)}.` : ''; return; }
+    const parc = Math.floor(Math.round(v * 100) / n) / 100, ult = somarMeses(fatura.value, n - 1);
+    const parte = div === 'DIVIDIDO' ? ` ${outro} paga metade de cada parcela.` : div === 'OUTRO' ? ` ${outro} deve o valor inteiro de cada parcela.` : '';
+    infoParc.textContent = (n === 1 ? `Entra na fatura de ${rotuloMes(fatura.value)}.` : `${n}x de ${brl(parc)} — da fatura de ${rotuloMes(fatura.value)} até ${rotuloMes(ult)}.`) + parte;
+  }
+  [cartao, data, valor].forEach(el => el.addEventListener('input', atualizar)); [cartao, data].forEach(el => el.addEventListener('change', atualizar));
+  fatura.addEventListener('change', () => { faturaManual = true; atualizar(); });
+  const restaurar = h('button', { type: 'button', class: 'btn sec mini', style: { marginTop: '6px' }, onclick: () => { faturaManual = false; atualizar(); } }, 'Usar a sugerida');
+  atualizar();
+  modal({ titulo: novo ? 'Nova compra no cartão' : 'Editar compra', corpo: h('div', {},
+    h('div', { class: 'form-grade' }, campo('Cartão', cartao, { obrig: true }), campo('Data da compra', data, { obrig: true }),
+      campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Parcelas', nParc, { obrig: true }), campo('Valor da parcela (R$)', vParc, { dica: 'Digite a parcela e o total é calculado (parcela × nº de parcelas).' }),
+      campo('Valor total (R$)', valor, { obrig: true, dica: 'Ou digite o total e a parcela é calculada. Estorno: valor negativo.' }),
+      campo('1ª parcela na fatura de', fatura, { dica: h('div', {}, h('div', { class: 'dica' }, 'Calculada pelo dia de fechamento do cartão; altere se o banco lançou em outra fatura.'), restaurar) }), campo('Categoria', cat)),
+    infoParc, campo('Como dividir', divisao.el, { obrig: true }), blocoTerceiro, campo('Observação', obs), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || !v) { msg.textContent = 'Informe o valor total.'; return; }
+      const corpo = { cartao_id: cartao.value, descricao: desc.value, data_compra: data.value, valor_total: v, parcelas: Number(nParc.value), primeira_fatura: fatura.value, divisao: divisao.valor(), categoria: cat.querySelector('input').value, obs: obs.value,
+        terceiro: tChk.checked ? tNome.value.trim() : '', terceiro_valor: tChk.checked ? lerValor(tValor.value) || 0 : 0 };
+      if (tChk.checked && (!corpo.terceiro || !(corpo.terceiro_valor > 0))) { msg.textContent = 'Informe quem paga e quanto (ou desmarque “Alguém de fora paga”).'; return; }
+      try { const r = novo ? await POST('/api/compras', corpo) : await PUT('/api/compras/' + compra.id, corpo); c(); toast(novo ? 'Compra lançada.' : 'Compra atualizada.'); carregarDominios(true); aoSalvar && aoSalvar(r); } catch (e) { msg.textContent = e.message; } } }] });
+}
+// ---------- leitura do PDF no navegador (pdf.js) ----------
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfjsCarregando = null;
+function carregarScript(src) { return new Promise((ok, falha) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = () => falha(new Error('não carregou ' + src)); document.head.append(el); }); }
+/** Carrega o pdf.js uma vez. O "worker" roda na própria página (evita bloqueio de worker externo no Apps Script). */
+function carregarPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!pdfjsCarregando) pdfjsCarregando = Promise.race([
+    carregarScript(PDFJS + 'pdf.min.js').then(() => carregarScript(PDFJS + 'pdf.worker.min.js')).then(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; return window.pdfjsLib; }),
+    new Promise((_, falha) => setTimeout(() => falha(new Error('tempo esgotado ao carregar o leitor de PDF')), 20000))
+  ]).catch(e => { pdfjsCarregando = null; throw e; });
+  return pdfjsCarregando;
+}
+/** Pede a senha do PDF numa janela. Devolve a senha ou null (cancelou). */
+function pedirSenhaPdf(nomeArq, errou) {
+  return new Promise(res => {
+    let feito = false; const fim = v => { if (!feito) { feito = true; res(v); } };
+    const inp = h('input', { type: 'password', autocomplete: 'off', placeholder: 'Senha do PDF' });
+    const m = modal({ titulo: 'PDF protegido por senha', aoFechar: () => fim(null), corpo: h('div', {},
+      errou ? h('div', { class: 'aviso erro' }, 'Senha incorreta. Tente de novo.') : null,
+      h('p', {}, `O arquivo ${nomeArq} tem senha. Digite a senha para o app ler as compras (ela não é guardada).`),
+      h('p', { class: 'dica' }, 'Os bancos costumam usar parte do CPF do titular — confira no e-mail ou no app do banco que enviou a fatura.'),
+      campo('Senha', inp)),
+      botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => { fim(null); c(); } }, { texto: 'Abrir PDF', onclick: c => { fim(inp.value); c(); } }] });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fim(inp.value); m.fechar(); } });
+  });
+}
+/** Junta os pedaços de texto do pdf.js em linhas (mesma altura), da esquerda para a direita. */
+function montarLinhas(itens) {
+  const lst = itens.filter(i => i.str && i.str.trim()).map(i => ({ s: i.str, x: i.transform[4], y: i.transform[5], w: i.width || 0, a: Math.abs(i.transform[3]) || i.height || 8 }))
+    .sort((p, q) => q.y - p.y || p.x - q.x);
+  const linhas = [];
+  for (const it of lst) {
+    const l = linhas[linhas.length - 1];
+    if (l && Math.abs(l.y - it.y) <= Math.max(2, Math.min(l.a, it.a) * 0.55)) l.itens.push(it); else linhas.push({ y: it.y, a: it.a, itens: [it] });
+  }
+  return linhas.map(l => { l.itens.sort((p, q) => p.x - q.x); let txt = '', fimX = null;
+    for (const it of l.itens) { const gap = fimX == null ? 0 : it.x - fimX; txt += (fimX == null ? '' : gap > it.a * 1.5 ? '   ' : gap > it.a * 0.15 ? ' ' : '') + it.s; fimX = it.x + it.w; }
+    return txt.replace(/\s+$/, ''); }).join('\n');
+}
+/** Extrai o texto do PDF no navegador. Pede a senha se precisar. Lança erro com .cancelado se a pessoa desistir. */
+async function textoDoPdf(buf, nomeArq) {
+  const lib = await carregarPdfJs(); let senha, errou = false;
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    try {
+      const doc = await lib.getDocument({ data: new Uint8Array(buf.slice(0)), password: senha, isEvalSupported: false }).promise, partes = [];
+      for (let n = 1; n <= doc.numPages; n++) { const pg = await doc.getPage(n); partes.push(montarLinhas((await pg.getTextContent()).items)); }
+      return partes.join('\n');
+    } catch (e) {
+      if (e && e.name === 'PasswordException') {
+        senha = await pedirSenhaPdf(nomeArq, errou || e.code === 2); errou = true;
+        if (senha == null) { const c = new Error('Leitura cancelada: o PDF tem senha.'); c.cancelado = true; throw c; }
+        continue;
+      }
+      throw e;
+    }
+  }
+  const c = new Error('Muitas tentativas de senha. Confira a senha e tente de novo.'); c.cancelado = true; throw c;
+}
+
+/**
+ * Lançar vários itens de uma vez numa fatura (como no extrato do cartão) — digitando ou lendo o PDF da fatura.
+ * Cada linha: dividir (sim/não), data, descrição, valor da parcela, parcela atual / nº de parcelas → o total é calculado
+ * (parcela × nº) e a 1ª parcela recua para a fatura certa.
+ */
+async function formLote(perfil, aoSalvar, cartaoInicial, mesInicial, opcoes = {}) {
+  const dom = await carregarDominios(), meus = dom.cartoes.filter(c => c.titular === perfil.email && c.ativo === 1);
+  if (!meus.length) { toast('Cadastre primeiro um cartão seu (Cartões e faturas → Meus cartões).', true); return gerenciarCartoes(perfil, dom, aoSalvar); }
+  const cartao = select(meus.map(c => ({ value: c.id, label: c.rotulo })), (meus.find(c => c.id === cartaoInicial) || meus[0]).id, {}, null);
+  const fatura = h('input', { type: 'month', value: mesInicial || estado.mes || hoje().slice(0, 7) });
+  const outro = perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)';
+  const OPC_DIV = [{ value: 'DIVIDIDO', label: 'Dividido' }, { value: 'INDIVIDUAL', label: 'Só meu' }, { value: 'OUTRO', label: 'Todo de ' + outro }];
+  const divPadrao = select(OPC_DIV, 'DIVIDIDO', { onchange: () => linhas.forEach(l => { if (!l.divMexida) { l.div.value = divPadrao.value; l.sinc(); } }) }, null);
+  const catId = 'cats-lote-' + Math.random().toString(36).slice(2, 7);
+  const corpoTab = h('tbody'), resumo = h('div', { class: 'dica', style: { fontWeight: 600 } }), msg = h('div', { class: 'erro-txt', role: 'alert' }), statusPdf = h('div');
+  const todos = h('input', { type: 'checkbox', title: 'Marcar/desmarcar todos como divididos', 'aria-label': 'Marcar todos como divididos', onchange: () => linhas.forEach(l => { l.chk.checked = todos.checked; l.marcar(); }) });
+  const linhas = [];
+  function novaLinha(foco, dados) {
+    const l = { secao: (dados && dados.cartao_secao) || '' }; dados = dados || {};
+    l.data = h('input', { type: 'date', value: dados.data_compra || hoje(), 'aria-label': 'Data da compra' }); l.dataMexida = !!dados.data_compra;
+    l.desc = h('input', { type: 'text', maxlength: 120, placeholder: 'Descrição', value: dados.descricao || '', 'aria-label': 'Descrição' });
+    l.vp = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00', value: dados.valor_parcela != null ? valorEdicao(dados.valor_parcela) : '', 'aria-label': 'Valor da parcela' });
+    l.k = h('input', { type: 'number', min: 1, max: 48, value: dados.parcela_atual || 1, 'aria-label': 'Parcela atual', style: { width: '62px' } });
+    l.n = h('input', { type: 'number', min: 1, max: 48, value: dados.parcelas || 1, 'aria-label': 'Total de parcelas', style: { width: '62px' } });
+    l.total = h('span', { class: 'num', style: { fontWeight: 600 } }, '—');
+    l.div = select(OPC_DIV, dados.divisao || divPadrao.value, { 'aria-label': 'Divisão', onchange: () => { l.divMexida = true; l.sinc(); } }, null);
+    l.chk = h('input', { type: 'checkbox', 'aria-label': 'Dividir esta compra', title: 'Dividir meio a meio', onchange: () => l.marcar() });
+    l.sinc = () => { l.chk.checked = l.div.value === 'DIVIDIDO'; l.tr && l.tr.classList.toggle('dividida', l.chk.checked); };
+    l.marcar = () => { l.div.value = l.chk.checked ? 'DIVIDIDO' : 'INDIVIDUAL'; l.divMexida = true; l.sinc(); };
+    l.cat = h('input', { type: 'text', list: catId, maxlength: 40, placeholder: 'Categoria', value: dados.categoria || '', 'aria-label': 'Categoria' });
+    l.info = h('div', { class: 'sec-txt' });
+    const remover = h('button', { type: 'button', class: 'btn perigo mini', title: 'Remover linha', onclick: () => { if (linhas.length === 1) { [l.desc, l.vp, l.cat].forEach(x => { x.value = ''; }); calc(); return; } linhas.splice(linhas.indexOf(l), 1); l.tr.remove(); renumerar(); calc(); } }, ico('x'));
+    l.num = h('td', { class: 'sec-txt' });
+    l.data.addEventListener('change', () => { l.dataMexida = true; });
+    [l.vp, l.k, l.n].forEach(x => x.addEventListener('input', calc));
+    l.k.addEventListener('change', () => { if (Number(l.k.value) > 1 && !l.dataMexida) l.data.value = ''; calc(); }); // parcela em andamento: a data é a da compra original
+    l.vp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (linhas[linhas.length - 1] === l) novaLinha(true); } });
+    l.tr = h('tr', {}, l.num, h('td', { class: 'col-dividir' }, h('label', { class: 'chk-dividir' }, l.chk, h('span', {}, 'Dividir'))), h('td', {}, l.data), h('td', {}, l.desc, l.info), h('td', {}, l.vp),
+      h('td', {}, h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } }, l.k, 'de', l.n)), h('td', { class: 'num' }, l.total), h('td', {}, l.div), h('td', {}, l.cat), h('td', {}, remover));
+    l.sinc(); linhas.push(l); corpoTab.append(l.tr); renumerar(); calc(); if (foco) setTimeout(() => l.desc.focus(), 20);
+  }
+  function renumerar() { linhas.forEach((l, i) => { l.num.textContent = i + 1; }); }
+  function calc() {
+    let soma = 0, n = 0, div = 0;
+    linhas.forEach(l => {
+      const p = lerValor(l.vp.value), nn = Math.max(1, Number(l.n.value) || 1), k = Math.max(1, Number(l.k.value) || 1);
+      if (isNaN(p) || !p) { l.total.textContent = '—'; l.info.textContent = l.secao ? 'cartão ' + l.secao : ''; return; }
+      l.total.textContent = brl(Math.round(p * 100) * nn / 100); soma += Math.round(p * 100); n++; if (l.div.value !== 'INDIVIDUAL') div++;
+      l.info.textContent = (l.secao ? 'cartão ' + l.secao + ' · ' : '') + (nn > 1 ? (k > nn ? 'parcela atual maior que o total' : `${k}/${nn} · 1ª parcela em ${rotuloMesCurto(somarMeses(fatura.value, -(k - 1)))}, última em ${rotuloMesCurto(somarMeses(fatura.value, nn - k))}`) : 'à vista');
+    });
+    todos.checked = linhas.length > 0 && linhas.every(l => l.chk.checked);
+    resumo.textContent = n ? `${n} item(ns) · ${div} dividido(s) · somam ${brl(soma / 100)} na fatura de ${rotuloMes(fatura.value)}` : 'Preencha os itens da fatura.';
+  }
+  fatura.addEventListener('change', calc);
+  corpoTab.addEventListener('change', calc);
+
+  // ---------- leitura do PDF ----------
+  const arquivo = h('input', { type: 'file', accept: 'application/pdf,.pdf', class: 'oculto', onchange: () => { if (arquivo.files[0]) lerPdf(arquivo.files[0]); arquivo.value = ''; } });
+  const btnPdf = h('button', { type: 'button', class: 'btn sec', onclick: () => arquivo.click() }, ico('arquivo'), 'Ler PDF da fatura');
+  async function lerPdf(arq) {
+    limpar(statusPdf); msg.textContent = '';
+    if (!/\.pdf$/i.test(arq.name) && arq.type !== 'application/pdf') { statusPdf.append(h('div', { class: 'aviso erro' }, 'Escolha um arquivo PDF.')); return; }
+    if (arq.size > 15 * 1024 * 1024) { statusPdf.append(h('div', { class: 'aviso erro' }, 'PDF grande demais (limite de 15 MB).')); return; }
+    btnPdf.disabled = true; const aguarde = t => limpar(statusPdf).append(h('div', { class: 'aviso info' }, ico('relogio'), ' ' + t));
+    aguarde(`Lendo ${arq.name}…`);
+    const q = () => new URLSearchParams({ mes: fatura.value, cartao_id: cartao.value });
+    try {
+      const buf = await arq.arrayBuffer(); let r = null, motivoPlanoB = '';
+      // 1º) no navegador (pdf.js) — abre PDF com senha
+      try {
+        const texto = await textoDoPdf(buf, arq.name);
+        if (texto.replace(/\s/g, '').length >= 20) { aguarde('Analisando as compras…'); r = await POST('/api/faturas/ler-texto?' + q(), { texto }); }
+        else motivoPlanoB = 'o PDF parece ser uma imagem escaneada';
+      } catch (e) { if (e.cancelado || (e.status && e.status !== 0)) throw e; motivoPlanoB = 'o leitor do navegador não abriu (' + (e.message || e) + ')'; }
+      // 2º) plano B: leitura pelo Google (Drive + OCR); não abre PDF com senha
+      if (!r) {
+        if (arq.size > 2 * 1024 * 1024) throw new Error(`Não consegui ler no navegador (${motivoPlanoB}) e o arquivo passa de 2 MB para a leitura pelo Google.`);
+        aguarde(`Lendo pelo Google (${motivoPlanoB})… pode levar uns 15 segundos.`);
+        r = await POST('/api/faturas/ler-pdf?' + q(), {}, { raw: await lerArquivoBase64(arq) });
+      }
+      mostrarLidos(r);
+    } catch (e) {
+      limpar(statusPdf).append(h('div', { class: 'aviso erro' }, e.message || String(e),
+        e.dados && e.dados.codigo === 'SENHA' ? h('div', { style: { marginTop: '4px' } }, 'Tente de novo: o leitor do navegador pede a senha. Se não aparecer, salve uma cópia sem senha (“Imprimir → Salvar como PDF”).') : null));
+    } finally { btnPdf.disabled = false; }
+  }
+  function mostrarLidos(r) {
+    if (r.mes && r.mes !== fatura.value) fatura.value = r.mes;
+    const novos = r.itens.filter(i => !i.duplicado), dup = r.itens.length - novos.length;
+    for (const l of linhas.slice()) if (!l.desc.value.trim() && !l.vp.value.trim()) { linhas.splice(linhas.indexOf(l), 1); l.tr.remove(); }
+    novos.forEach(i => novaLinha(false, i)); if (!linhas.length) novaLinha(false); renumerar(); calc();
+    const confere = r.total_pdf != null ? (Math.abs(r.total_pdf - r.soma_itens) < 0.01 ? ' — confere com o total impresso na fatura ✓' : ` — o total impresso na fatura é ${brl(r.total_pdf)}; confira se faltou alguma linha.`) : '';
+    limpar(statusPdf).append(h('div', { class: 'aviso ' + (novos.length ? 'ok' : 'atencao') },
+      r.aviso || `Li ${r.itens.length} lançamento(s) da fatura de ${rotuloMes(r.mes)}: soma ${brl(r.soma_itens)}${confere}`,
+      (r.cartoes || []).length > 1 ? h('div', { style: { marginTop: '4px' } }, 'Cartões lidos nesta fatura: ', r.cartoes.map(c => `${c.nome} (${c.itens} · ${brl(c.soma)})`).join(' · '), '.') : null,
+      dup ? h('div', {}, `${dup} já estava(m) lançado(s) nesta fatura e não foram repetidos.`) : null,
+      novos.length ? h('div', { style: { marginTop: '4px' } }, h('b', {}, 'Agora marque em “Dividir” as compras do casal'), ' e confira os valores antes de lançar.') : null,
+      (r.sem_data || []).length ? h('details', { style: { marginTop: '6px' } }, h('summary', {}, `${r.sem_data.length} linha(s) com valor que não reconheci como compra — confira se falta alguma`), h('ul', { style: { margin: '6px 0 0 18px' } }, r.sem_data.map(x => h('li', {}, x.descricao)))) : null,
+      r.ignorados.length ? h('details', { style: { marginTop: '6px' } }, h('summary', {}, `${r.ignorados.length} linha(s) ignorada(s) (pagamentos, saldos, totais)`), h('ul', { style: { margin: '6px 0 0 18px' } }, r.ignorados.map(x => h('li', {}, x.descricao + ' — ' + brl(x.valor))))) : null));
+  }
+
+  const tab = h('div', { class: 'tabela-wrap lote' }, h('table', { class: 't' },
+    h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, h('label', { class: 'chk-dividir', style: { margin: 0 } }, todos, h('span', {}, 'Dividir'))), ['Data da compra', 'Descrição', 'Valor da parcela', 'Parcela', 'Total', 'Divisão', 'Categoria', ''].map(t => h('th', { class: t === 'Total' ? 'num' : '' }, t)))), corpoTab));
+  novaLinha(false);
+  const mm = modal({ titulo: 'Lançar vários itens na fatura', larga: true, corpo: h('div', {},
+    h('div', { class: 'form-grade g3c' }, campo('Cartão', cartao, { obrig: true }), campo('Fatura (mês do vencimento)', fatura, { obrig: true }), campo('Divisão padrão das linhas', divPadrao)),
+    h('div', { class: 'importar-pdf' }, h('div', {}, h('b', {}, 'Tem o PDF da fatura?'), h('div', { class: 'dica' }, 'O app lê as compras e preenche as linhas (PDF com senha também: ele pede a senha). Depois é só marcar quais são divididas.')), btnPdf, arquivo),
+    statusPdf,
+    h('p', { class: 'dica' }, 'Ou digite: ', h('b', {}, 'valor da parcela'), ' e “parcela 3 de 10” — o total (parcela × nº de parcelas) é calculado e as parcelas seguintes já vão para as próximas faturas. Enter no valor cria outra linha.'),
+    tab, h('datalist', { id: catId }, dom.categorias.map(c => h('option', { value: c }))),
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '10px' } }, h('button', { type: 'button', class: 'btn sec', onclick: () => novaLinha(true) }, ico('mais'), 'Adicionar linha'), resumo), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Lançar todos', onclick: async (c, ev) => {
+      msg.textContent = '';
+      const itens = linhas.filter(l => l.desc.value.trim() || l.vp.value.trim()).map(l => ({ data_compra: l.data.value, descricao: l.desc.value, valor_parcela: lerValor(l.vp.value),
+        parcela_atual: Number(l.k.value) || 1, parcelas: Number(l.n.value) || 1, divisao: l.div.value, categoria: l.cat.value }));
+      if (!itens.length) { msg.textContent = 'Preencha pelo menos um item.'; return; }
+      const sem = itens.findIndex(i => !i.data_compra); if (sem >= 0) { msg.textContent = `Linha ${sem + 1}: informe a data da compra (para parcelas em andamento, a data da compra original).`; return; }
+      const btn = ev && ev.target; if (btn) btn.disabled = true;
+      try { const r = await POST('/api/compras/lote', { cartao_id: cartao.value, fatura: fatura.value, itens }); c(); toast(`${r.n} item(ns) lançado(s) — ${brl(r.valor_na_fatura)} na fatura.`); carregarDominios(true); aoSalvar && aoSalvar(r); }
+      catch (e) { msg.textContent = e.message; } finally { if (btn) btn.disabled = false; } } }] });
+  mm.el.querySelector('.modal').classList.add('lote-modal');
+  if (opcoes.pdf) setTimeout(() => arquivo.click(), 60);
+}
+async function verCompra(id, perfil, aoMudar) {
+  const cp = await GET('/api/compras/' + id), dom = await carregarDominios(), car = dom.cartoes.find(c => c.id === cp.cartao_id), meu = car && car.titular === perfil.email;
+  const corpo = h('div', {}, h('div', { class: 'linhas', style: { marginBottom: '12px' } },
+    h('span', {}, 'Cartão'), h('span', {}, car ? car.rotulo + ' · ' + car.titular_nome : '—'), h('span', {}, 'Data da compra'), h('span', {}, fmtData(cp.data_compra)),
+    h('span', {}, 'Valor total'), h('span', {}, brl(cp.valor_total)), h('span', {}, 'Divisão'), h('span', {}, chipDivisao(cp.divisao, cp.divisao_rotulo)),
+    cp.terceiro ? [h('span', {}, 'Terceiro'), h('span', {}, `${cp.terceiro} paga ${brl(cp.terceiro_valor)}` + (cp.terceiro_recebido === 1 ? ' · recebido ✓' : ' · a receber'))] : null,
+    cp.categoria ? [h('span', {}, 'Categoria'), h('span', {}, cp.categoria)] : null, cp.obs ? [h('span', {}, 'Observação'), h('span', {}, cp.obs)] : null),
+    tabela([{ titulo: 'Parcela', f: p => p.n + '/' + cp.parcelas }, { titulo: 'Fatura', f: p => h('span', { style: { fontWeight: p.mes === (estado.mes || '') ? 700 : 400 } }, p.rotulo) }, { titulo: 'Valor', num: true, f: p => brl(p.valor) }], cp.parcelas_lista));
+  const botoes = [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }];
+  if (meu) botoes.unshift({ texto: 'Excluir', classe: 'perigo', onclick: async c => { if (!(await confirmar('Excluir compra?', `Excluir "${cp.descricao}" e todas as ${cp.parcelas} parcela(s)?`, 'Excluir', true))) return; try { await DEL('/api/compras/' + cp.id); c(); toast('Compra excluída.'); aoMudar && aoMudar(); } catch (e) { toast(e.message, true); } } },
+    { texto: 'Editar', onclick: c => { c(); formCompra(perfil, cp, aoMudar); } });
+  modal({ titulo: cp.descricao, corpo, botoes });
+}
+
+/** Marcar um item da fatura como pago em parte (ou todo) por um terceiro, e registrar quando ele pagar. */
+function formTerceiro(item, aoSalvar) {
+  const nome = h('input', { type: 'text', maxlength: 60, value: item.terceiro || '', placeholder: 'ex.: Mãe, João' });
+  const total = Number(item.valor_total), val = h('input', { type: 'text', inputmode: 'decimal', value: valorEdicao(item.terceiro ? item.terceiro_valor : total), placeholder: '0,00' });
+  const rec = h('input', { type: 'checkbox', checked: !!item.terceiro_recebido }), info = h('div', { class: 'dica' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const atual = () => { const v = lerValor(val.value); info.textContent = isNaN(v) || !v ? '' : v > total ? `Máximo: ${brl(total)} (valor da compra).` : `Fica para vocês: ${brl(Math.round((total - v) * 100) / 100)}` + (item.parcelas > 1 ? ` · ${nome.value || 'o terceiro'} paga ≈ ${brl(Math.floor(v * 100 / item.parcelas) / 100)} em cada uma das ${item.parcelas} parcelas.` : '.'); };
+  [nome, val].forEach(el => el.addEventListener('input', atual)); atual();
+  const salvar = async (fechar, corpo) => { msg.textContent = ''; try { await PUT('/api/compras/' + item.id + '/terceiro', corpo); fechar(); toast(corpo.terceiro ? 'Terceiro salvo.' : 'Terceiro removido.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } };
+  const botoes = [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: c => { const v = lerValor(val.value); if (nome.value.trim().length < 2) { msg.textContent = 'Informe quem vai pagar.'; return; } if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor.'; return; } salvar(c, { terceiro: nome.value.trim(), terceiro_valor: v, terceiro_recebido: rec.checked }); } }];
+  if (item.terceiro) botoes.unshift({ texto: 'Remover terceiro', classe: 'perigo', onclick: c => salvar(c, { terceiro: '' }) });
+  modal({ titulo: 'Terceiro paga: ' + item.descricao, corpo: h('div', {},
+    h('p', { class: 'dica', style: { margin: '12px 0' } }, `Compra de ${brl(total)}` + (item.parcelas > 1 ? ` em ${item.parcelas}x` : '') + '. Quem é de fora do casal e quanto vai pagar no total? Só o resto entra na divisão e no acerto.'),
+    h('div', { class: 'form-grade' }, campo('Quem paga', nome, { obrig: true }), campo('Quanto paga no total (R$)', val, { obrig: true })), info,
+    h('label', { class: 'chk-linha' }, rec, h('span', {}, h('b', {}, 'Já recebi esse valor'), h('div', { class: 'dica' }, 'Marque quando a pessoa te pagar.'))), msg), botoes });
+}
+/** Painel com o que terceiros devem nas suas compras. */
+async function painelTerceiros(alvo, recarregar) {
+  const r = await GET('/api/terceiros'); if (!r.itens.length) return;
+  alvo.append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Terceiros'), h('p', { class: 'sub' }, `Compras suas que alguém de fora do casal vai pagar. A receber: ${brl(r.a_receber)}.`))),
+    tabela([{ titulo: 'Compra', f: x => h('div', {}, x.descricao, h('div', { class: 'sec-txt' }, `${x.cartao} · ${fmtData(x.data_compra)}` + (x.parcelas > 1 ? ` · ${x.parcelas}x` : ''))) },
+      { titulo: 'Quem paga', k: 'terceiro' }, { titulo: 'Valor', num: true, f: x => brl(x.terceiro_valor) },
+      { titulo: 'Situação', f: x => h('label', { class: 'chk-dividir', title: 'Marque quando receber' }, h('input', { type: 'checkbox', checked: x.recebido, onchange: async ev => { ev.target.disabled = true;
+        try { await PUT('/api/compras/' + x.id + '/terceiro', { terceiro: x.terceiro, terceiro_valor: x.terceiro_valor, terceiro_recebido: ev.target.checked }); toast(ev.target.checked ? 'Marcado como recebido.' : 'Marcado como a receber.'); recarregar(); } catch (e) { ev.target.checked = !ev.target.checked; ev.target.disabled = false; toast(e.message, true); } } }), h('span', {}, x.recebido ? 'recebido' : 'a receber')) }], r.itens)));
+}
+
+// ---------- tela ----------
+async function render(alvo, { perfil, dom, query }) {
+  let cartaoSel = query.cartao || null, mesAtual = null;
+  const lista = h('div', {}), detalhe = h('div', {}), parcs = h('div', {});
+  const sel = seletorMes(m => carregar(m));
+  const recarregar = () => carregar(sel.valor());
+  const btns = h('div', { class: 'acoes-linha' }, sel.el, h('button', { class: 'btn', type: 'button', onclick: () => formCompra(perfil, null, recarregar, cartaoSel) }, ico('mais'), 'Nova compra'),
+    h('button', { class: 'btn sec', type: 'button', onclick: () => formLote(perfil, recarregar, cartaoSel, sel.valor()) }, ico('camadas'), 'Lançar vários'),
+    h('button', { class: 'btn sec', type: 'button', onclick: () => formLote(perfil, recarregar, cartaoSel, sel.valor(), { pdf: true }) }, ico('arquivo'), 'Importar PDF'),
+    h('button', { class: 'btn sec', type: 'button', onclick: async () => gerenciarCartoes(perfil, await carregarDominios(), recarregar) }, ico('cartao'), 'Meus cartões'));
+  const terc = h('div', {});
+  alvo.append(cabPagina('Cartões e faturas', 'A fatura de cada mês é a que vence nele. Compras parceladas aparecem sozinhas nas faturas seguintes até a última parcela.', btns), lista, detalhe, terc, parcs);
+
+  async function carregar(mes) {
+    mesAtual = mes; limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…')); limpar(detalhe); limpar(parcs); limpar(terc);
+    painelTerceiros(terc, recarregar).catch(() => {});
+    const [r, pc] = await Promise.all([GET('/api/faturas?mes=' + mes), GET('/api/parcelamentos?mes=' + mes)]); if (mesAtual !== mes) return;
+    const cartoes = r.cartoes.filter(c => !c.restrito || c.total || c.id === cartaoSel).sort((a, b) => (a.titular === perfil.email ? 0 : 1) - (b.titular === perfil.email ? 0 : 1));
+    limpar(lista);
+    if (!cartoes.length) { lista.append(h('div', { class: 'painel' }, h('div', { class: 'vazio' }, 'Nenhum cartão cadastrado ainda. ', h('button', { class: 'btn', type: 'button', onclick: () => formCartao(perfil, null, recarregar) }, ico('mais'), 'Cadastrar meu cartão')))); }
+    else {
+      if (!cartaoSel || !cartoes.some(c => c.id === cartaoSel)) cartaoSel = cartoes[0].id;
+      lista.append(h('div', { class: 'cartoes-lista' }, cartoes.map(c => h('button', { type: 'button', class: 'cartao' + (c.id === cartaoSel ? ' sel' : '') + (c.ativo ? '' : ' inativo'), onclick: () => { cartaoSel = c.id; carregar(mes); } },
+        h('div', { class: 'nome' }, h('span', {}, ico('cartao'), ' ', c.nome), c.restrito ? h('span', { class: 'chip DIVIDIDO', title: 'Você vê só as compras divididas com você' }, 'divididas') : h('span', { class: 'chip ' + (c.paga ? 'paga' : 'aberta') }, c.paga ? 'paga' : c.total ? 'em aberto' : 'sem lançamentos')),
+        h('div', { class: 'tit' }, c.titular === perfil.email ? 'Seu cartão' : 'Cartão de ' + primeiroNome(c.titular_nome), ' · vence ', fmtDataCurta(c.vencimento)),
+        h('div', { class: 'val' }, brl(c.total)), h('div', { class: 'tit' }, c.restrito ? c.lancamentos + ' dividida(s) com você' : c.lancamentos + ' lançamento(s)')))));
+      await desenharFatura(cartaoSel, mes);
+    }
+    parcs.append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Parcelamentos em andamento'), h('p', { class: 'sub' }, 'Compras parceladas com parcelas a partir de ' + rotuloMes(mes) + ' — dos seus cartões e as divididas com você.'))),
+      tabela([{ titulo: 'Compra', f: p => h('div', {}, p.descricao, h('div', { class: 'sec-txt' }, p.cartao + ' · ' + primeiroNome(p.titular_nome) + ' · comprado em ' + fmtData(p.data_compra))) },
+        { titulo: 'Parcela no mês', f: p => p.parcela_atual ? p.parcela_atual + '/' + p.parcelas : '—' }, { titulo: 'Divisão', f: p => chipDivisao(p.divisao, p.divisao_rotulo) },
+        { titulo: 'Valor da parcela', num: true, f: p => brl(p.valor_parcela) }, { titulo: 'Restam', num: true, f: p => p.restantes + 'x · ' + brl(p.valor_restante) }, { titulo: 'Última fatura', f: p => rotuloMesCurto(p.ultima_fatura) }],
+        pc, { vazio: 'Nenhuma compra parcelada em andamento.', aoClicar: p => verCompra(p.id, perfil, recarregar) })));
+  }
+  async function desenharFatura(id, mes) {
+    limpar(detalhe).append(h('p', { class: 'carregando' }, 'Carregando fatura…'));
+    const f = await GET(`/api/faturas/${id}?mes=${mes}`); if (mesAtual !== mes || cartaoSel !== id) return;
+    const meu = f.cartao.titular === perfil.email, outro = meu ? (perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)') : 'você', restrito = !!f.restrito;
+    const pagar = meu ? h('button', { class: 'btn ' + (f.paga ? 'sec' : ''), type: 'button', onclick: async () => { try { await PUT(`/api/faturas/${id}/${mes}`, { paga: !f.paga }); toast(f.paga ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico(f.paga ? 'x' : 'ok'), f.paga ? 'Desmarcar pagamento' : 'Marcar fatura como paga') : null;
+    limpar(detalhe).append(h('div', { class: 'painel' },
+      h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, restrito ? `Divididas no cartão de ${primeiroNome(f.titular_nome)} — ${f.rotulo}` : `Fatura ${f.cartao_nome} — ${f.rotulo}`),
+        h('p', { class: 'sub' }, restrito ? `${f.cartao_nome} · vence em ${fmtData(f.vencimento)} · você vê só as compras divididas com você (o resto da fatura é privado)` : `${f.titular_nome} · vence em ${fmtData(f.vencimento)}` + (f.paga ? ` · paga em ${fmtData(f.paga_em)}` : ''))),
+        h('div', { class: 'acoes-linha' }, meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formCompra(perfil, null, recarregar, id) }, ico('mais'), 'Lançar neste cartão') : null,
+          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formLote(perfil, recarregar, id, mes) }, ico('camadas'), 'Lançar vários nesta fatura') : null,
+          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_fixos.formRecorrente(perfil, { tipo: 'CARTAO', cartao_id: id, divisao: 'DIVIDIDO', dia: 1, inicio: mes }, recarregar, { mes, novo: true }) }, ico('repetir'), 'Gasto fixo') : null, pagar)),
+      h('div', { class: 'kpis' },
+        restrito ? null : h('div', { class: 'kpi' }, h('div', { class: 'r' }, 'Total da fatura'), h('div', { class: 'v' }, brl(f.total)), h('div', { class: 'd' }, f.itens.length + ' lançamento(s)')),
+        h('div', { class: 'kpi neutro' }, h('div', { class: 'r' }, restrito ? 'Divididas com você' : 'Gastos divididos'), h('div', { class: 'v' }, brl(f.compartilhado)), h('div', { class: 'd' }, restrito ? f.itens.length + ' lançamento(s)' : 'dividido ou todo do outro')),
+        h('div', { class: 'kpi ambar' }, h('div', { class: 'r' }, meu ? `${outro} deve a você` : `Você deve a ${primeiroNome(f.titular_nome)}`), h('div', { class: 'v' }, brl(f.receber)), h('div', { class: 'd' }, 'entra no acerto de ' + f.rotulo.split(' de ')[0])),
+        f.terceiros > 0 ? h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Terceiros pagam'), h('div', { class: 'v' }, brl(f.terceiros)), h('div', { class: 'd' }, 'parte de pessoas de fora do casal neste mês')) : null),
+      tabela([{ titulo: 'Data', f: i => fmtDataCurta(i.data_compra) }, { titulo: 'Descrição', f: i => h('div', {}, i.descricao, i.categoria ? h('div', { class: 'sec-txt' }, i.categoria) : null,
+          i.terceiro ? h('div', {}, h('span', { class: 'chip terceiro' + (i.terceiro_recebido ? ' ok' : ''), title: `${i.terceiro} paga ${brl(i.terceiro_valor)} no total` }, ico('usuario'), `${i.terceiro} paga ${brl(i.terceiro_parcela)}` + (i.terceiro_recebido ? ' ✓' : ''))) : null) },
+        { titulo: 'Parcela', f: i => i.recorrente ? h('span', { class: 'chip fixo', title: 'Gasto fixo: entra todo mês' }, ico('repetir'), 'fixo') : i.parcelas > 1 ? i.parcela + '/' + i.parcelas : 'à vista' },
+        { titulo: 'Dividir', f: i => meu ? h('label', { class: 'chk-dividir', title: i.recorrente ? 'Gasto fixo: muda a partir deste mês' : 'Marque para dividir meio a meio' }, h('input', { type: 'checkbox', checked: i.divisao === 'DIVIDIDO', onchange: async ev => {
+            const alvo = ev.target, nova = alvo.checked ? 'DIVIDIDO' : 'INDIVIDUAL'; alvo.disabled = true;
+            try { if (i.recorrente) await __m_pages_fixos.mudarDivisao(i.id, nova, mes); else await PUT('/api/compras/' + i.id + '/divisao', { divisao: nova });
+              toast((alvo.checked ? `"${i.descricao}" agora é dividida` : `"${i.descricao}" agora é só sua`) + (i.recorrente ? ` a partir de ${rotuloMes(mes)}.` : '.')); recarregar(); }
+            catch (e) { alvo.checked = !alvo.checked; alvo.disabled = false; toast(e.message, true); } } })) : (i.divisao === 'DIVIDIDO' ? '✓' : '') },
+        { titulo: 'Divisão', f: i => chipDivisao(i.divisao, i.divisao_rotulo) },
+        { titulo: 'Valor', num: true, f: i => brl(i.valor) },
+        { titulo: '', f: i => meu && i.recorrente ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar gasto fixo', onclick: () => __m_pages_fixos.abrirRecorrente(i.id, perfil, recarregar, mes) }, ico('editar')),
+            h('button', { class: 'btn sec mini', type: 'button', title: 'Encerrar gasto fixo', onclick: async () => __m_pages_fixos.encerrar(await GET('/api/recorrentes/' + i.id), recarregar) }, 'Encerrar'))
+          : meu ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Terceiro paga parte', 'aria-label': 'Terceiro paga parte', onclick: () => formTerceiro(i, recarregar) }, ico('usuario'), 'Terceiro'),
+          h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: async () => formCompra(perfil, await GET('/api/compras/' + i.id), recarregar) }, ico('editar')),
+          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir compra?', `Excluir "${i.descricao}"` + (i.parcelas > 1 ? ` e todas as ${i.parcelas} parcelas (inclusive dos outros meses)?` : '?'), 'Excluir', true))) return; try { await DEL('/api/compras/' + i.id); toast('Compra excluída.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
+        f.itens, { vazio: 'Nenhum lançamento nesta fatura.', rodape: ['', restrito ? 'Total dividido' : 'Total', '', '', '', brl(f.total), ''], aoClicar: i => i.recorrente ? (meu && __m_pages_fixos.abrirRecorrente(i.id, perfil, recarregar, mes)) : verCompra(i.id, perfil, recarregar) }),
+      h('div', { style: { marginTop: '14px' } }, h('div', { class: 'dica', style: { marginBottom: '6px' } }, restrito ? 'Próximos meses deste cartão (só o que é dividido com você):' : 'Próximas faturas deste cartão (parcelas e gastos fixos já lançados):'),
+        h('div', { class: 'acoes-linha' }, f.proximas.map(p => h('button', { type: 'button', class: 'btn sec mini', onclick: () => { sel.el.querySelector('input[type=month]').value = p.mes; sel.el.querySelector('input[type=month]').dispatchEvent(new Event('change')); } }, rotuloMesCurto(p.mes) + ': ' + brl(p.total)))))));
+  }
+  await carregar(sel.valor());
+}
+return { render, formCompra, formLote, formCartao, faturaSugerida };
+})();
+</script>

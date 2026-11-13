@@ -1,0 +1,75 @@
+<script>/* pages/acerto */
+const __m_pages_acerto = (() => {
+const { h, limpar, brl, fmtData, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
+const { GET, POST, DEL, baixar } = __m_api;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, segmentos, chipDivisao } = __m_ui;
+const { fraseAcerto } = __m_pages_resumo;
+
+function formAcerto(perfil, ac, aoSalvar) {
+  const outro = perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)';
+  const pend = ac.pendente, devoEu = pend && pend.devedor.email === perfil.email;
+  const direcao = segmentos([{ value: 'PAGUEI', label: `Eu paguei ${outro}`, dica: 'saiu do meu bolso' }, { value: 'RECEBI', label: `${outro} me pagou`, dica: 'entrou para mim' }], pend ? (devoEu ? 'PAGUEI' : 'RECEBI') : 'PAGUEI');
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: pend ? valorEdicao(pend.valor) : '', placeholder: '0,00' }), data = h('input', { type: 'date', value: hoje() });
+  const obs = h('input', { type: 'text', maxlength: 200, placeholder: 'ex.: pix do acerto' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Registrar acerto de ' + ac.rotulo, corpo: h('div', {},
+    h('p', { class: 'dica' }, 'Registre o pagamento feito entre vocês para zerar o saldo do mês. Pode ser em partes.'),
+    campo('Quem pagou a quem', direcao.el, { obrig: true }), h('div', { class: 'form-grade' }, campo('Valor (R$)', valor, { obrig: true }), campo('Data', data, { obrig: true })), campo('Observação', obs), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Registrar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor.'; return; }
+      try { await POST('/api/acertos', { mes: ac.mes, valor: v, data: data.value, direcao: direcao.valor(), obs: obs.value }); c(); toast('Acerto registrado.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+
+async function render(alvo, { perfil }) {
+  let mesAtual = null;
+  const corpo = h('div', {}), hist = h('div', {});
+  const sel = seletorMes(m => carregar(m)), recarregar = () => carregar(sel.valor());
+  alvo.append(cabPagina('Acerto do mês', 'Quanto cada um deve ao outro: parcelas divididas das faturas que vencem no mês + pix/débito divididos do mês.',
+    h('div', { class: 'acoes-linha' }, sel.el, h('button', { class: 'btn sec', type: 'button', onclick: () => baixar('/api/exportar.csv?mes=' + sel.valor(), 'contas.csv').catch(e => toast(e.message, true)) }, ico('baixar'), 'Exportar')) ), corpo, hist);
+
+  async function carregar(mes) {
+    mesAtual = mes; limpar(corpo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const [ac, hs] = await Promise.all([GET('/api/acerto?mes=' + mes), GET('/api/acerto/historico')]); if (mesAtual !== mes) return;
+    limpar(corpo); limpar(hist);
+    if (!ac.completo) { corpo.append(h('div', { class: 'aviso info' }, 'O acerto aparece quando as duas pessoas tiverem conta no app. Peça para a outra pessoa abrir o mesmo link e clicar em “Criar conta”.')); return; }
+    const [a, b] = ac.pessoas;
+    // destaque
+    let frase, det, zerado = false;
+    if (!ac.devido && !ac.pendente) { frase = ['Nada a acertar em ' + ac.rotulo]; det = 'Sem gastos divididos no mês, ou os dois lados se compensam.'; zerado = true; }
+    else if (!ac.pendente) { frase = ['Contas acertadas ✓']; det = `Saldo do mês de ${brl(ac.devido)} já acertado.`; zerado = true; }
+    else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); det = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : `${primeiroNome(a.nome)} tem a receber ${brl(a.receber)} e ${primeiroNome(b.nome)} tem a receber ${brl(b.receber)}: a diferença é ${brl(ac.devido)}.`; }
+    corpo.append(h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Resultado de ' + ac.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, det)),
+      h('button', { class: 'btn', type: 'button', onclick: () => formAcerto(perfil, ac, recarregar) }, ico('troca'), 'Registrar acerto')));
+    // comparação
+    const tot = v => v == null ? h('span', { title: 'Privado: você vê só o que é dividido' }, '—') : brl(v);
+    const linha = (rot, fa, fb, cls) => [h('td', { class: cls || '' }, rot), h('td', { class: 'num ' + (cls || '') }, fa), h('td', { class: 'num ' + (cls || '') }, fb)];
+    corpo.append(h('div', { class: 'grade g2' },
+      h('div', { class: 'painel' }, h('h2', {}, 'Como chegamos nesse valor'), h('p', { class: 'sub' }, '“A receber” = metade do que foi dividido + o valor inteiro do que era só do outro. Os totais do outro são privados (—).'),
+        h('div', { class: 'tabela-wrap compacta' }, h('table', { class: 't' }, h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', { class: 'num' }, a.nome), h('th', { class: 'num' }, b.nome))),
+          h('tbody', {},
+            h('tr', {}, linha(h('b', {}, 'Cartão de crédito'), '', '')), h('tr', {}, linha('Total das faturas', tot(a.cartao.total), tot(b.cartao.total), 'sec-txt')),
+            h('tr', {}, linha('Parte dividida', brl(a.cartao.compartilhado), brl(b.cartao.compartilhado), 'sec-txt')), h('tr', {}, linha('A receber', brl(a.cartao.receber), brl(b.cartao.receber))),
+            h('tr', {}, linha(h('b', {}, 'Pix / débito'), '', '')), h('tr', {}, linha('Total pago', tot(a.pix.total), tot(b.pix.total), 'sec-txt')),
+            h('tr', {}, linha('Parte dividida', brl(a.pix.compartilhado), brl(b.pix.compartilhado), 'sec-txt')), h('tr', {}, linha('A receber', brl(a.pix.receber), brl(b.pix.receber)))),
+          h('tfoot', {}, h('tr', {}, linha('Total a receber do outro', brl(a.receber), brl(b.receber))))))),
+      h('div', { class: 'painel' }, h('h2', {}, 'Acertos registrados'), h('p', { class: 'sub' }, 'Pagamentos feitos entre vocês referentes a ' + ac.rotulo + '.'),
+        tabela([{ titulo: 'Data', f: x => fmtData(x.data) }, { titulo: 'Quem pagou', f: x => primeiroNome(x.de_nome) + ' → ' + primeiroNome(x.para_nome) }, { titulo: 'Valor', num: true, f: x => brl(x.valor) },
+          { titulo: '', f: x => h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir acerto?', `Excluir o acerto de ${brl(x.valor)} (${fmtData(x.data)})?`, 'Excluir', true))) return; try { await DEL('/api/acertos/' + x.id); toast('Acerto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) }],
+          ac.acertos, { vazio: 'Nenhum acerto registrado neste mês.' }),
+        ac.pendente ? h('div', { class: 'aviso atencao' }, 'Falta acertar ', h('b', {}, brl(ac.pendente.valor)), ` (${primeiroNome(ac.pendente.devedor.nome)} → ${primeiroNome(ac.pendente.credor.nome)}).`) : null)));
+    // itens
+    corpo.append(h('div', { class: 'painel' }, h('h2', {}, 'Lançamentos que entram no acerto'), h('p', { class: 'sub' }, 'Só o que foi dividido ou é todo do outro. Lançamentos “só meu” não aparecem aqui.'),
+      tabela([{ titulo: 'Data', f: i => fmtDataCurta(i.data) }, { titulo: 'Descrição', f: i => h('div', {}, i.descricao, h('div', { class: 'sec-txt' }, i.origem === 'CARTAO' ? `${i.cartao} · parcela ${i.parcela}` : ({ PIX: 'Pix', DEBITO: 'Débito', DINHEIRO: 'Dinheiro' }[i.forma] || i.forma))) },
+        { titulo: 'Pago por', f: i => i.pagador === perfil.email ? 'Você' : primeiroNome(i.pagador_nome) }, { titulo: 'Divisão', f: i => chipDivisao(i.divisao, i.divisao_rotulo) },
+        { titulo: 'Valor', num: true, f: i => brl(i.valor) }, { titulo: 'O outro deve', num: true, f: i => brl(i.parte) }], ac.itens, { vazio: 'Nenhum lançamento dividido neste mês.' })));
+    // histórico
+    hist.append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Histórico dos meses'), h('p', { class: 'sub' }, 'Clique em um mês para abrir.'))),
+      hs.aberto ? h('div', { class: 'aviso atencao' }, ico('alerta'), ` Somando todos os meses, ${primeiroNome(hs.aberto.devedor.nome)} ainda deve ${brl(hs.aberto.valor)} a ${primeiroNome(hs.aberto.credor.nome)}.`) : h('div', { class: 'aviso ok' }, ico('ok'), ' Todos os meses estão acertados.'),
+      tabela([{ titulo: 'Mês', f: m => m.rotulo }, { titulo: 'Resultado', f: m => m.devedor ? `${primeiroNome(m.devedor.nome)} devia ${brl(m.devido)} a ${primeiroNome(m.credor.nome)}` : 'sem saldo' },
+        { titulo: 'Acertado', num: true, f: m => brl(m.pago) }, { titulo: 'Situação', f: m => m.pendente ? h('span', { class: 'chip aberta' }, `falta ${brl(m.pendente.valor)}`) : h('span', { class: 'chip paga' }, 'acertado') }],
+        hs.meses, { vazio: 'Ainda não há meses com lançamentos.', aoClicar: m => { const inp = sel.el.querySelector('input[type=month]'); inp.value = m.mes; inp.dispatchEvent(new Event('change')); window.scrollTo(0, 0); } })));
+  }
+  await carregar(sel.valor());
+}
+return { render };
+})();
+</script>

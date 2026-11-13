@@ -1,0 +1,133 @@
+<script>/* pages/gastos */
+const __m_pages_gastos = (() => {
+const { h, limpar, brl, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
+const { GET, POST, PUT, DEL, carregarDominios } = __m_api;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, chipForma, opcoesDivisao, campoCategoria } = __m_ui;
+
+async function formGasto(perfil, gasto, aoSalvar) {
+  const dom = await carregarDominios(), novo = !gasto; gasto = gasto || { data: hoje(), forma: 'PIX', divisao: 'DIVIDIDO' };
+  const data = h('input', { type: 'date', value: gasto.data }), desc = h('input', { type: 'text', value: gasto.descricao || '', maxlength: 120, placeholder: 'ex.: Feira, Farmácia, Conta de luz…' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(gasto.valor), placeholder: '0,00' });
+  const forma = segmentos([{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }], gasto.forma);
+  const info = h('div', { class: 'dica' }), divisao = segmentos(opcoesDivisao(perfil), gasto.divisao, () => atualizar());
+  const cat = campoCategoria(dom, gasto.categoria), obs = h('input', { type: 'text', value: gasto.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const outro = perfil.parceiro ? perfil.parceiro.apelido : 'a outra pessoa';
+  function atualizar() {
+    const v = lerValor(valor.value), d = divisao.valor();
+    info.textContent = isNaN(v) || !v ? '' : d === 'DIVIDIDO' ? `${outro} vai te dever ${brl(Math.round(v * 50) / 100)} (metade).` : d === 'OUTRO' ? `${outro} vai te dever ${brl(v)} (o valor inteiro).` : 'Não entra no acerto: é só seu.';
+  }
+  valor.addEventListener('input', atualizar); atualizar();
+  modal({ titulo: novo ? 'Novo gasto no pix / débito' : 'Editar gasto', corpo: h('div', {},
+    h('div', { class: 'aviso info', style: { marginTop: '12px' } }, ico('usuario'), ' Pago por ', h('b', {}, novo ? 'você (' + perfil.nome + ')' : gasto.pago_por_nome), ' — quem lança é quem pagou.'),
+    h('div', { class: 'form-grade' }, campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Valor (R$)', valor, { obrig: true }), campo('Data', data, { obrig: true }),
+      campo('Forma de pagamento', forma.el, { obrig: true }), campo('Categoria', cat)),
+    campo('Como dividir', divisao.el, { obrig: true }), info, campo('Observação', obs), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor.'; return; }
+      const corpo = { data: data.value, descricao: desc.value, valor: v, forma: forma.valor(), divisao: divisao.valor(), categoria: cat.querySelector('input').value, obs: obs.value };
+      try { const r = novo ? await POST('/api/gastos', corpo) : await PUT('/api/gastos/' + gasto.id, corpo); c(); toast(novo ? 'Gasto lançado.' : 'Gasto atualizado.'); carregarDominios(true); aoSalvar && aoSalvar(r); } catch (e) { msg.textContent = e.message; } } }] });
+}
+
+/** Lê o arquivo como texto: UTF-8 se for válido, senão Windows-1252 (comum em OFX de banco). */
+async function lerTexto(arq) {
+  const buf = await arq.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+}
+/** Importar extrato (OFX/CSV): o servidor lê, sugere forma/categoria e aponta repetidos; você revisa e lança. */
+async function formExtrato(perfil, aoSalvar) {
+  const dom = await carregarDominios(), outro = perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)';
+  const OPC_DIV = [{ value: 'INDIVIDUAL', label: 'Só meu' }, { value: 'DIVIDIDO', label: 'Dividido' }, { value: 'OUTRO', label: 'Todo de ' + outro }];
+  const OPC_FORMA = [{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }];
+  const catId = 'cats-ext-' + Math.random().toString(36).slice(2, 7);
+  const arquivo = h('input', { type: 'file', accept: '.ofx,.csv,.txt,.qfx,application/x-ofx,text/csv,text/plain' });
+  const status = h('div'), corpoTab = h('tbody'), resumo = h('div', { class: 'dica', style: { fontWeight: 600 } }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const todos = h('input', { type: 'checkbox', 'aria-label': 'Incluir todos', title: 'Marcar/desmarcar todos', onchange: () => { linhas.forEach(l => { l.inc.checked = todos.checked; l.pintar(); }); calc(); } });
+  const tabelaEl = h('div', { class: 'tabela-wrap extrato', style: { display: 'none' } }, h('table', { class: 't' },
+    h('thead', {}, h('tr', {}, h('th', {}, todos), h('th', {}, 'Data'), h('th', {}, 'Descrição'), h('th', { class: 'num' }, 'Valor'), h('th', {}, 'Forma'), h('th', {}, 'Categoria'), h('th', {}, 'Divisão'))), corpoTab),
+    h('datalist', { id: catId }, (dom.categorias || []).map(c => h('option', { value: c }))));
+  let linhas = [], nomeArq = '';
+  function calc() {
+    const sel = linhas.filter(l => l.inc.checked), tot = sel.reduce((s, l) => s + Math.round(Number(l.it.valor) * 100), 0), div = sel.filter(l => l.div.value !== 'INDIVIDUAL').length;
+    resumo.textContent = linhas.length ? `${sel.length} de ${linhas.length} selecionado(s) · ${brl(tot / 100)}` + (div ? ` · ${div} entram no acerto` : '') : '';
+    todos.checked = linhas.length > 0 && linhas.every(l => l.inc.checked);
+    btnLancar.textContent = sel.length ? `Lançar ${sel.length} gasto(s)` : 'Lançar';
+  }
+  function desenhar(r) {
+    linhas = []; limpar(corpoTab);
+    r.itens.forEach(it => {
+      const l = { it };
+      l.inc = h('input', { type: 'checkbox', checked: it.marcar, 'aria-label': 'Incluir', onchange: () => { l.pintar(); calc(); } });
+      l.data = h('input', { type: 'date', value: it.data, 'aria-label': 'Data' });
+      l.desc = h('input', { type: 'text', maxlength: 120, value: it.descricao, 'aria-label': 'Descrição', title: it.original });
+      l.forma = select(OPC_FORMA, it.forma, { 'aria-label': 'Forma' }, null);
+      l.cat = h('input', { type: 'text', list: catId, maxlength: 40, placeholder: 'Categoria', value: it.categoria || '', 'aria-label': 'Categoria' });
+      l.div = select(OPC_DIV, it.divisao || 'INDIVIDUAL', { 'aria-label': 'Divisão', onchange: () => { l.pintar(); calc(); } }, null);
+      l.pintar = () => { l.tr.classList.toggle('fora', !l.inc.checked); l.tr.classList.toggle('dividida', l.inc.checked && l.div.value !== 'INDIVIDUAL'); };
+      l.tr = h('tr', {}, h('td', { class: 'col-inc' }, h('label', { class: 'chk-dividir' }, l.inc, h('span', {}, 'Lançar'))), h('td', {}, l.data),
+        h('td', {}, l.desc, it.aviso ? h('div', { class: 'sec-txt aviso-linha' }, ico('alerta'), ' ', it.aviso) : null), h('td', { class: 'num', style: { fontWeight: 600 } }, brl(it.valor)),
+        h('td', {}, l.forma), h('td', {}, l.cat), h('td', {}, l.div));
+      corpoTab.append(l.tr); l.pintar(); linhas.push(l);
+    });
+    tabelaEl.style.display = linhas.length ? '' : 'none'; calc();
+  }
+  arquivo.addEventListener('change', async () => {
+    const f = arquivo.files[0]; if (!f) return; msg.textContent = ''; nomeArq = f.name;
+    if (f.size > 3e6) { msg.textContent = 'Arquivo grande demais (máx. 3 MB). Exporte um período menor.'; return; }
+    limpar(status).append(h('p', { class: 'carregando' }, 'Lendo o extrato…'));
+    try {
+      const r = await POST('/api/extrato/ler', { texto: await lerTexto(f), nome: f.name });
+      const marcados = r.itens.filter(x => x.marcar).length, avisos = r.itens.length - marcados;
+      limpar(status).append(h('div', { class: 'aviso ' + (r.itens.length ? 'ok' : 'atencao') }, ico(r.itens.length ? 'ok' : 'alerta'), ' ',
+        r.itens.length ? `${r.formato}: ${r.itens.length} saída(s) de ${fmtDataCurta(r.de)} a ${fmtDataCurta(r.ate)}.` : 'Nenhuma saída encontrada no arquivo.',
+        r.entradas_ignoradas ? ` ${r.entradas_ignoradas} entrada(s) ignorada(s).` : '', avisos ? ` ${avisos} vieram desmarcadas (pagamento de fatura, aplicação ou possível repetido) — confira.` : ''));
+      desenhar(r);
+    } catch (e) { limpar(status); msg.textContent = e.message; }
+  });
+  const btnLancar = h('button', { class: 'btn', type: 'button' }, 'Lançar');
+  const mm = modal({ titulo: 'Importar extrato do banco', larga: true, corpo: h('div', {},
+    h('div', { class: 'aviso info', style: { marginTop: '12px' } }, ico('info'), ' No app ou site do banco, exporte o extrato da conta em ', h('b', {}, 'OFX'), ' (Money/Quicken) ou ', h('b', {}, 'CSV'), '. Só as saídas entram, como gastos pagos por ', h('b', {}, 'você'), '. ',
+      'Pagamento da fatura do cartão e aplicações vêm desmarcados, porque as compras do cartão já estão na fatura.'),
+    campo('Arquivo do extrato (.ofx ou .csv)', arquivo), status, tabelaEl, resumo, msg),
+    botoes: [] });
+  mm.el.querySelector('.modal').classList.add('lote-modal');
+  const rodape = h('footer', {}, h('button', { class: 'btn sec', type: 'button', onclick: () => mm.fechar() }, 'Cancelar'), btnLancar);
+  mm.el.querySelector('.modal').append(rodape);
+  btnLancar.addEventListener('click', async () => {
+    msg.textContent = ''; const sel = linhas.filter(l => l.inc.checked); if (!sel.length) { msg.textContent = 'Marque pelo menos um lançamento.'; return; }
+    const itens = sel.map(l => ({ data: l.data.value, descricao: l.desc.value, valor: Number(l.it.valor), forma: l.forma.value, categoria: l.cat.value, divisao: l.div.value, ref_externa: l.it.ref_externa }));
+    btnLancar.disabled = true;
+    try { const r = await POST('/api/gastos/lote', { arquivo: nomeArq, itens }); mm.fechar(); toast(`${r.n} gasto(s) lançado(s) · ${brl(r.total)}` + (r.pulados ? ` · ${r.pulados} já existiam` : '') + '.'); carregarDominios(true); aoSalvar && aoSalvar(r); }
+    catch (e) { msg.textContent = e.message; btnLancar.disabled = false; }
+  });
+}
+
+async function render(alvo, { perfil, dom }) {
+  let pessoa = '', mesAtual = null;
+  const resumo = h('div', {}), lista = h('div', {});
+  const sel = seletorMes(m => carregar(m)), recarregar = () => carregar(sel.valor());
+  const filtro = segmentos([{ value: '', label: 'Todos' }].concat(dom.usuarios.map(u => ({ value: u.email, label: u.email === perfil.email ? 'Meus' : 'De ' + u.apelido }))), '', v => { pessoa = v; recarregar(); });
+  alvo.append(cabPagina('Pix e débito', 'Gastos pagos na hora (pix, débito ou dinheiro). Quem lança é quem pagou; os divididos entram no acerto do mês.',
+    h('div', { class: 'acoes-linha' }, sel.el, h('button', { class: 'btn', type: 'button', onclick: () => formGasto(perfil, null, recarregar) }, ico('mais'), 'Novo gasto'), h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_fixos.formRecorrente(perfil, { tipo: 'PIX', forma: 'PIX', divisao: 'DIVIDIDO', dia: 5, inicio: sel.valor() }, recarregar, { mes: sel.valor(), novo: true }) }, ico('repetir'), 'Gasto fixo'),
+      h('button', { class: 'btn sec', type: 'button', onclick: () => formExtrato(perfil, recarregar) }, ico('arquivo'), 'Importar extrato'))), resumo, lista);
+
+  async function carregar(mes) {
+    mesAtual = mes; limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/gastos?' + new URLSearchParams({ mes, pessoa })); if (mesAtual !== mes) return;
+    limpar(resumo).append(h('div', { class: 'kpis' }, r.totais.slice().sort((a, b) => (b.email === perfil.email) - (a.email === perfil.email)).map((t, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') },
+      h('div', { class: 'r' }, t.email === perfil.email ? 'Você pagou' : primeiroNome(t.nome) + ' pagou (dividido com você)'), h('div', { class: 'v' }, brl(t.total == null ? t.compartilhado : t.total)),
+      h('div', { class: 'd' }, t.total == null ? `você deve ${brl(t.receber)} desses gastos` : `${brl(t.compartilhado)} dividido · a receber ${brl(t.receber)}`)))));
+    const total = r.itens.reduce((s, g) => s + Number(g.valor), 0);
+    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Lançamentos de ' + r.rotulo), h('p', { class: 'sub' }, r.itens.length + ' gasto(s)')), filtro.el),
+      tabela([{ titulo: 'Data', f: g => fmtDataCurta(g.data) }, { titulo: 'Descrição', f: g => h('div', {}, g.descricao, g.recorrente ? h('span', { class: 'chip fixo', style: { marginLeft: '6px' } }, ico('repetir'), 'fixo') : null, g.categoria || g.obs ? h('div', { class: 'sec-txt' }, [g.categoria, g.obs].filter(Boolean).join(' · ')) : null) },
+        { titulo: 'Forma', f: g => chipForma(g.forma) }, { titulo: 'Pago por', f: g => h('span', { title: g.pago_por_nome }, g.pago_por === perfil.email ? 'Você' : primeiroNome(g.pago_por_nome)) },
+        { titulo: 'Divisão', f: g => chipDivisao(g.divisao, g.divisao_rotulo) }, { titulo: 'Valor', num: true, f: g => brl(g.valor) }, { titulo: 'Outro deve', num: true, f: g => g.parte_outro ? brl(g.parte_outro) : '—' },
+        { titulo: '', f: g => g.recorrente ? (g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar gasto fixo', onclick: () => __m_pages_fixos.abrirRecorrente(g.id, perfil, recarregar, mesAtual) }, ico('editar'))) : '')
+          : g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGasto(perfil, g, recarregar) }, ico('editar')),
+          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir gasto?', `Excluir "${g.descricao}" (${brl(g.valor)})?`, 'Excluir', true))) return; try { await DEL('/api/gastos/' + g.id); toast('Gasto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
+        r.itens, { vazio: 'Nenhum gasto em pix/débito neste mês.', rodape: ['', 'Total', '', '', '', brl(total), '', ''] })));
+  }
+  await carregar(sel.valor());
+}
+return { render, formGasto, formExtrato };
+})();
+</script>

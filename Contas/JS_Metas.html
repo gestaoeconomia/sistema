@@ -1,0 +1,159 @@
+<script>/* pages/metas */
+const __m_pages_metas = (() => {
+const { h, limpar, brl, fmtData, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
+const { GET, POST, PUT, DEL, estado } = __m_api;
+const { cabPagina, tabela, modal, confirmar, toast, campo, segmentos } = __m_ui;
+
+const CATS = [{ value: 'VIAGEM', label: 'Viagem', icone: 'aviao' }, { value: 'CARRO', label: 'Carro', icone: 'carro' }, { value: 'CASA', label: 'Casa', icone: 'home' },
+  { value: 'RESERVA', label: 'Reserva', icone: 'escudo' }, { value: 'ESTUDOS', label: 'Estudos', icone: 'livro' }, { value: 'OUTRO', label: 'Outro', icone: 'alvo' }];
+let ultimo = null; // último /api/metas (ganhos e capacidade de cada um), usado na prévia do formulário
+const iconeCat = c => (CATS.find(x => x.value === c) || CATS[5]).icone;
+const difMeses = (de, ate) => (Number(ate.slice(0, 4)) - Number(de.slice(0, 4))) * 12 + Number(ate.slice(5, 7)) - Number(de.slice(5, 7));
+/** Mesma conta do servidor (05_Metas.js): quanto guardar por mês, em reais. */
+function porMes(alvo, guardado, n, iPct) {
+  const fv = Math.round(alvo * 100), pv = Math.round(guardado * 100), i = (iPct || 0) / 100;
+  if (n <= 0) return Math.max(0, fv - pv) / 100;
+  if (!i) return Math.max(0, Math.ceil((fv - pv) / n)) / 100;
+  const f = Math.pow(1 + i, n); return Math.max(0, Math.ceil((fv - pv * f) * i / (f - 1))) / 100;
+}
+/** Simulação: guardando "aporte" por mês, em quantos meses chega? */
+function mesesParaChegar(alvo, guardado, aporte, iPct) {
+  const i = (iPct || 0) / 100; let s = guardado;
+  for (let n = 1; n <= 600; n++) { s = s * (1 + i) + aporte; if (s >= alvo - 0.005) return n; }
+  return null;
+}
+
+// ---------- formulários ----------
+function formMeta(perfil, meta, aoSalvar) {
+  const novo = !meta || !meta.id, mesAtual = hoje().slice(0, 7); meta = meta || { categoria: 'VIAGEM', mes_alvo: somarMeses(mesAtual, 11), pct1: 50, pessoa1: perfil.email, rendimento_mes: 0 };
+  const par = perfil.parceiro;
+  const nome = h('input', { type: 'text', value: meta.nome || '', maxlength: 80, placeholder: 'ex.: Viagem para o Chile, Troca do carro' });
+  const cat = segmentos(CATS.map(c => ({ value: c.value, label: c.label })), meta.categoria || 'OUTRO');
+  const alvo = h('input', { type: 'text', inputmode: 'decimal', value: meta.valor_alvo ? valorEdicao(meta.valor_alvo) : '', placeholder: '0,00' });
+  const ini = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(meta.valor_inicial), placeholder: '0,00' });
+  const ate = h('input', { type: 'month', value: meta.mes_alvo || '', min: mesAtual });
+  const rend = h('input', { type: 'text', inputmode: 'decimal', 'data-livre': '1', value: meta.rendimento_mes ? String(meta.rendimento_mes).replace('.', ',') : '', placeholder: '0' });
+  // divisão: % de quem está logado
+  const meuPct = meta.pessoa1 === perfil.email || !meta.pessoa1 ? Number(meta.pct1 ?? 50) : 100 - Number(meta.pct1 ?? 50);
+  const pct = h('input', { type: 'range', min: 0, max: 100, step: 5, value: meuPct, style: { width: '100%', minHeight: 0 } });
+  const rotPct = h('div', { class: 'dica', style: { fontWeight: 600 } });
+  const obs = h('input', { type: 'text', value: meta.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' }), previa = h('div', { class: 'aviso info' });
+  function atualizar() {
+    const p = Number(pct.value); rotPct.textContent = `Você: ${p}%` + (par ? ` · ${par.apelido}: ${100 - p}%` : '');
+    const a = lerValor(alvo.value), g = lerValor(ini.value || '0') || 0, r = lerValor(rend.value || '0') || 0;
+    if (isNaN(a) || a <= 0 || !/^\d{4}-\d{2}$/.test(ate.value)) { previa.textContent = 'Preencha o valor e até quando, e o app calcula quanto guardar por mês.'; return; }
+    const n = difMeses(mesAtual, ate.value) + 1;
+    if (n <= 0) { previa.textContent = 'O mês da meta já passou.'; return; }
+    const v = porMes(a, g, n, r);
+    limpar(previa).append(v <= 0 ? 'Com o que vocês já têm' + (r ? ' e o rendimento' : '') + ', a meta já está garantida.' :
+      h('span', {}, 'Vocês precisam guardar ', h('b', {}, brl(v) + ' por mês'), ` durante ${n} mês(es) (de ${rotuloMesCurto(mesAtual)} a ${rotuloMesCurto(ate.value)})`,
+        par ? ` — você ${brl(Math.ceil(v * p) / 100)} e ${par.apelido} ${brl(Math.ceil(v * (100 - p)) / 100)}.` : '.', r ? ` Já contando ${String(r).replace('.', ',')}% de rendimento ao mês.` : '',
+        ultimo && ultimo.renda_total > 0 ? h('div', { style: { marginTop: '6px' } }, `Isso é ${String(Math.round(v / ultimo.renda_total * 1000) / 10).replace('.', ',')}% dos ganhos de vocês (${brl(ultimo.renda_total)}/mês). `,
+          `Hoje as metas já usam ${brl(ultimo.total_por_mes - (novo ? 0 : meta.por_mes || 0))}/mês; sobra em média ${brl(ultimo.capacidade_total)}/mês depois dos gastos.`,
+          v + ultimo.total_por_mes - (novo ? 0 : meta.por_mes || 0) > ultimo.capacidade_total ? h('div', { class: 'valor-neg' }, 'Atenção: somando as metas, passa do que costuma sobrar. Considere um prazo maior ou um valor menor.') : null) : null));
+  }
+  [alvo, ini, ate, rend, pct].forEach(x => x.addEventListener('input', atualizar)); ate.addEventListener('change', atualizar); atualizar();
+  modal({ titulo: novo ? 'Nova meta' : 'Editar meta', corpo: h('div', {},
+    campo('Nome da meta', nome, { obrig: true }), campo('Tipo', cat.el),
+    h('div', { class: 'form-grade' }, campo('Valor da meta (R$)', alvo, { obrig: true }), campo('Até quando', ate, { obrig: true, dica: 'Mês em que vocês querem ter o valor.' }),
+      campo('Já guardado (R$)', ini, { dica: 'O que vocês já têm separado para isso hoje.' }), campo('Rendimento ao mês (%) — opcional', rend, { dica: 'Se o dinheiro fica aplicado. Ex.: poupança ~0,5; CDB/Tesouro ~0,8 a 0,9.' })),
+    par ? campo('Quanto cada um guarda', h('div', {}, pct, rotPct), { dica: 'Meio a meio é o padrão; ajuste se combinarem outra proporção.' }) : null,
+    campo('Observação', obs), previa, msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = ''; const a = lerValor(alvo.value); if (isNaN(a) || a <= 0) { msg.textContent = 'Informe o valor da meta.'; return; }
+      const corpo = { nome: nome.value, categoria: cat.valor(), valor_alvo: a, valor_inicial: lerValor(ini.value || '0') || 0, mes_alvo: ate.value, rendimento_mes: lerValor(rend.value || '0') || 0, pessoa1: perfil.email, pct1: Number(pct.value), obs: obs.value };
+      try { novo ? await POST('/api/metas', corpo) : await PUT('/api/metas/' + meta.id, corpo); c(); toast(novo ? 'Meta criada.' : 'Meta atualizada.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+function formGuardar(perfil, meta, aoSalvar) {
+  const par = perfil.parceiro, eu = meta.pessoas.find(p => p.email === perfil.email);
+  const tipo = segmentos([{ value: 'G', label: 'Guardar', dica: 'depósito na meta' }, { value: 'R', label: 'Retirar', dica: 'tirou dinheiro da meta' }], 'G');
+  const quem = segmentos([{ value: perfil.email, label: 'Eu' }].concat(par ? [{ value: par.email, label: par.apelido }] : []), perfil.email);
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: eu && eu.falta_no_mes > 0 ? valorEdicao(eu.falta_no_mes) : '', placeholder: '0,00' });
+  const data = h('input', { type: 'date', value: hoje() }), obs = h('input', { type: 'text', maxlength: 200, placeholder: 'ex.: transferência para a poupança' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Guardar na meta "' + meta.nome + '"', corpo: h('div', {},
+    eu && eu.falta_no_mes > 0 ? h('div', { class: 'aviso info' }, `Sua parte que falta guardar neste mês: ${brl(eu.falta_no_mes)}.`) : null,
+    campo('Movimento', tipo.el), campo('Quem guardou', quem.el), h('div', { class: 'form-grade' }, campo('Valor (R$)', valor, { obrig: true }), campo('Data', data, { obrig: true })), campo('Observação', obs), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Registrar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor.'; return; }
+      try { await POST(`/api/metas/${meta.id}/aportes`, { valor: tipo.valor() === 'R' ? -v : v, data: data.value, quem: quem.valor(), obs: obs.value }); c(); toast(tipo.valor() === 'R' ? 'Retirada registrada.' : 'Depósito registrado.'); aoSalvar && aoSalvar(); }
+      catch (e) { msg.textContent = e.message; } } }] });
+}
+async function verDepositos(perfil, meta, aoSalvar) {
+  const det = await GET('/api/metas/' + meta.id); let m;
+  m = modal({ titulo: 'Depósitos — ' + meta.nome, larga: true, corpo: h('div', {},
+    h('p', { class: 'dica' }, `Já tinham ${brl(det.valor_inicial)} ao criar a meta. ` + det.pessoas.map(p => `${p.email === perfil.email ? 'Você guardou' : primeiroNome(p.nome) + ' guardou'} ${brl(p.guardou)}`).join(' · ') + '.'),
+    tabela([{ titulo: 'Data', f: a => fmtData(a.data) }, { titulo: 'Quem', f: a => a.quem === perfil.email ? 'Você' : primeiroNome(a.quem_nome) }, { titulo: 'Observação', f: a => a.obs || '' },
+      { titulo: 'Valor', num: true, f: a => h('span', { class: a.valor < 0 ? 'valor-neg' : '' }, brl(a.valor)) },
+      { titulo: '', f: a => a.criado_por === perfil.email || a.quem === perfil.email ? h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => {
+        if (!(await confirmar('Excluir depósito?', `Excluir ${brl(a.valor)} de ${fmtData(a.data)}?`, 'Excluir', true))) return;
+        try { await DEL('/api/aportes/' + a.id); toast('Depósito excluído.'); m.fechar(); aoSalvar && aoSalvar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) : '' }],
+      det.aportes, { vazio: 'Nenhum depósito registrado ainda.' })),
+    botoes: [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }] });
+}
+
+// ---------- cartão da meta ----------
+function cartaoMeta(x, perfil, recarregar) {
+  const status = !x.ativa ? ['concluída', 'paga'] : x.atingida ? ['meta atingida', 'paga'] : x.vencida ? ['prazo vencido', 'aberta'] : x.falta_no_mes > 0 ? ['falta guardar este mês', 'aberta'] : ['em dia este mês', 'paga'];
+  const sim = h('input', { type: 'text', inputmode: 'decimal', placeholder: valorEdicao(x.por_mes || 100), style: { maxWidth: '140px' } }), simRes = h('div', { class: 'dica' });
+  sim.addEventListener('input', () => { const v = lerValor(sim.value); if (isNaN(v) || v <= 0) { simRes.textContent = ''; return; }
+    const n = mesesParaChegar(x.valor_alvo, x.guardado, v, x.rendimento_mes); const mesHoje = hoje().slice(0, 7);
+    simRes.textContent = n == null ? 'Com esse valor a meta não chega em 50 anos.' : `Chegam em ${rotuloMes(somarMeses(mesHoje, n - 1))} (${n} mês(es))` + (x.mes_alvo ? (somarMeses(mesHoje, n - 1) <= x.mes_alvo ? ' — dentro do prazo ✓' : ' — depois do prazo') : '') + '.'; });
+  return h('div', { class: 'meta' + (!x.ativa ? ' concluida' : '') },
+    h('div', { class: 'meta-topo' }, h('div', { class: 'meta-ico' }, ico(iconeCat(x.categoria))), h('div', { style: { flex: 1, minWidth: 0 } }, h('h3', {}, x.nome), h('div', { class: 'sec-txt' }, `${brl(x.valor_alvo)} até ${rotuloMes(x.mes_alvo)}` + (x.rendimento_mes ? ` · rende ${String(x.rendimento_mes).replace('.', ',')}% a.m.` : ''))),
+      h('span', { class: 'chip ' + status[1] }, status[0])),
+    h('div', { class: 'meta-barra', title: x.progresso + '%' }, h('i', { style: { width: Math.min(100, x.progresso) + '%' } })),
+    h('div', { class: 'linhas' }, h('span', {}, 'Guardado'), h('span', {}, `${brl(x.guardado)} (${String(x.progresso).replace('.', ',')}%)`), h('span', {}, 'Falta'), h('span', {}, brl(x.falta)),
+      h('span', {}, 'Prazo'), h('span', {}, x.vencida ? 'vencido' : `${x.meses_restantes} mês(es)`)),
+    x.ativa && !x.atingida ? h('div', { class: 'meta-mensal' }, h('div', { class: 'r' }, 'Guardar por mês'), h('div', { class: 'v' }, brl(x.por_mes)),
+      h('div', { class: 'meta-pessoas' }, x.pessoas.slice().sort((a, b) => (a.email === perfil.email ? -1 : 0) - (b.email === perfil.email ? -1 : 0)).map(p => h('div', {}, h('b', {}, p.email === perfil.email ? 'Você' : primeiroNome(p.nome)), ` (${p.pct}%) ${brl(p.por_mes)}`,
+        p.pct_renda != null ? h('div', { class: 'sec-txt' }, `${String(p.pct_renda).replace('.', ',')}% dos ganhos`) : null,
+        h('div', { class: 'sec-txt' }, p.falta_no_mes > 0 ? `falta ${brl(p.falta_no_mes)} este mês` : 'em dia este mês ✓')))),
+      h('div', { class: 'sec-txt', style: { marginTop: '6px' } }, `Neste mês: guardado ${brl(x.guardado_no_mes)}` + (x.falta_no_mes > 0 ? ` · falta ${brl(x.falta_no_mes)}` : ' ✓'))) : null,
+    x.ativa && !x.atingida && x.media_3m > 0 ? h('div', { class: 'sec-txt' }, `No ritmo dos últimos 3 meses (${brl(x.media_3m)}/mês), chegam em ${x.rotulo_previsao}` + (x.previsao <= x.mes_alvo ? ' — dentro do prazo ✓' : ' — depois do prazo') + '.') : null,
+    x.ativa && !x.atingida ? h('details', { class: 'meta-sim' }, h('summary', {}, 'E se guardarmos outro valor por mês?'), h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' } }, h('span', {}, 'R$'), sim, simRes)) : null,
+    h('div', { class: 'acoes-linha', style: { marginTop: '10px' } },
+      x.ativa ? h('button', { class: 'btn mini', type: 'button', onclick: () => formGuardar(perfil, x, recarregar) }, ico('mais'), 'Guardar') : null,
+      h('button', { class: 'btn sec mini', type: 'button', onclick: () => verDepositos(perfil, x, recarregar) }, 'Depósitos'),
+      x.ativa ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => formMeta(perfil, x, recarregar) }, ico('editar'), 'Editar') : null,
+      h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { try { await PUT('/api/metas/' + x.id, { acao: x.ativa ? 'concluir' : 'reabrir' }); toast(x.ativa ? 'Meta concluída. Parabéns!' : 'Meta reaberta.'); recarregar(); } catch (e) { toast(e.message, true); } } }, x.ativa ? 'Concluir' : 'Reabrir'),
+      h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir meta', onclick: async () => { if (!(await confirmar('Excluir meta?', `Excluir "${x.nome}" e todos os depósitos registrados nela?`, 'Excluir', true))) return; try { await DEL('/api/metas/' + x.id); toast('Meta excluída.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))));
+}
+
+/** Reserva de emergência: sugestão de 6 meses dos gastos do casal (média dos últimos 3 meses). */
+function blocoReserva(rs, perfil, recarregar) {
+  const tem = rs.meta_existente, abaixo = tem && Number(tem.valor_alvo) < rs.valor;
+  if (tem && !abaixo) return h('div', { class: 'aviso ok' }, ico('escudo'), ` Reserva de emergência: a meta “${tem.nome}” (${brl(tem.valor_alvo)}) cobre 6 meses de gastos de vocês (≈ ${brl(rs.valor)}).`);
+  const criar = () => formMeta(perfil, tem ? Object.assign({}, tem, { valor_alvo: rs.valor }) : { nome: 'Reserva de emergência', categoria: 'RESERVA', valor_alvo: rs.valor, mes_alvo: somarMeses(hoje().slice(0, 7), 23), pct1: 50, pessoa1: perfil.email, rendimento_mes: 0.8 }, recarregar);
+  return h('div', { class: 'painel', style: { marginBottom: '16px' } }, h('div', { class: 'reserva' },
+    h('div', { class: 'txt' }, h('h2', {}, ico('escudo'), ' Reserva de emergência'),
+      h('p', { style: { margin: '4px 0 0' } }, 'O recomendado é guardar ', h('b', {}, '6 meses'), ' dos gastos da casa. Pela média dos últimos 3 meses (≈ ', h('b', {}, brl(rs.base_mensal_arredondada)), '/mês para os dois), a reserva ideal é de ',
+        h('b', {}, brl(rs.valor)), '.' + (abaixo ? ` A meta “${tem.nome}” está em ${brl(tem.valor_alvo)}.` : ''))),
+    h('button', { class: 'btn', type: 'button', onclick: criar }, ico(tem ? 'editar' : 'mais'), tem ? 'Atualizar o valor da meta' : 'Criar meta de reserva')));
+}
+async function render(alvo, { perfil }) {
+  const topo = h('div', {}), lista = h('div', {}), recarregar = () => carregar();
+  alvo.append(cabPagina('Metas', 'Viagem, troca de carro, reserva… Diga quanto e até quando: o app calcula quanto guardar por mês e acompanha o que vocês já separaram.',
+    h('button', { class: 'btn', type: 'button', onclick: () => formMeta(perfil, null, recarregar) }, ico('mais'), 'Nova meta')), topo, lista);
+  async function carregar() {
+    limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const [r, rs] = await Promise.all([GET('/api/metas'), GET('/api/metas/reserva').catch(() => null)]), ativas = r.metas.filter(x => x.ativa), fechadas = r.metas.filter(x => !x.ativa); ultimo = r;
+    limpar(topo);
+    if (ativas.length) topo.append(h('div', { class: 'kpis' },
+      h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Falta guardar em ' + r.rotulo), h('div', { class: 'v' }, brl(r.total_falta_no_mes)), h('div', { class: 'd' }, `plano: ${brl(r.total_por_mes)} por mês em ${ativas.length} meta(s)`)),
+      r.pessoas.slice().sort((a, b) => (a.email === perfil.email ? -1 : 0) - (b.email === perfil.email ? -1 : 0)).map((p, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') }, h('div', { class: 'r' }, (p.email === perfil.email ? 'Sua parte' : 'Parte de ' + primeiroNome(p.nome)) + ' que falta este mês'), h('div', { class: 'v' }, brl(p.falta_no_mes)),
+        h('div', { class: 'd' }, `plano: ${brl(p.por_mes)} por mês` + (p.pct_renda != null ? ` · ${String(p.pct_renda).replace('.', ',')}% dos ganhos` : ''))))));
+    if (ativas.length && r.renda_total > 0) topo.append(h('div', { class: 'aviso ' + (r.total_por_mes <= r.capacidade_total ? 'ok' : 'atencao') },
+      r.total_por_mes <= r.capacidade_total ? ico('ok') : ico('alerta'), ` Ganhos de vocês: ${brl(r.renda_total)}/mês. Depois dos gastos (média dos últimos 3 meses), sobra em média ${brl(r.capacidade_total)}/mês — `,
+      r.total_por_mes <= r.capacidade_total ? h('b', {}, `as metas (${brl(r.total_por_mes)}/mês) cabem no orçamento.`) : h('b', {}, `as metas pedem ${brl(r.total_por_mes)}/mês, ${brl(r.total_por_mes - r.capacidade_total)} acima do que costuma sobrar.`)));
+    else if (ativas.length && !(r.renda_total > 0)) topo.append(h('div', { class: 'aviso info' }, 'Cadastre os ganhos (menu Ganhos) para ver se as metas cabem no orçamento de vocês.'));
+    if (rs && rs.tem_dados) topo.append(blocoReserva(rs, perfil, recarregar));
+    limpar(lista);
+    if (!r.metas.length) { lista.append(h('div', { class: 'painel' }, h('div', { class: 'vazio' }, 'Nenhuma meta ainda. Crie a primeira — por exemplo, “Viagem de férias”: R$ 12.000 até dezembro do ano que vem.', h('div', { style: { marginTop: '12px' } }, h('button', { class: 'btn', type: 'button', onclick: () => formMeta(perfil, null, recarregar) }, ico('mais'), 'Nova meta'))))); return; }
+    lista.append(h('div', { class: 'metas' }, ativas.map(x => cartaoMeta(x, perfil, recarregar))));
+    if (fechadas.length) lista.append(h('details', { style: { marginTop: '16px' } }, h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, `Metas concluídas (${fechadas.length})`), h('div', { class: 'metas', style: { marginTop: '10px' } }, fechadas.map(x => cartaoMeta(x, perfil, recarregar)))));
+  }
+  await carregar();
+}
+return { render, formMeta };
+})();
+</script>

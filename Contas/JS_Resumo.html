@@ -1,0 +1,211 @@
+<script>/* pages/resumo */
+const __m_pages_resumo = (() => {
+const { h, limpar, brl, fmtData, rotuloMesCurto, iniciais, primeiroNome, ico, lerValor, valorEdicao } = __m_util;
+const { GET, POST, PUT, DEL, estado } = __m_api;
+const { cabPagina, seletorMes, modal, toast, campo } = __m_ui;
+
+/** Frase do acerto do ponto de vista de quem está logado. */
+function fraseAcerto(ac, perfil, valor) {
+  if (!ac.devedor || !valor) return null;
+  const eu = perfil.email, outro = e => primeiroNome(e === ac.devedor.email ? ac.devedor.nome : ac.credor.nome);
+  if (ac.devedor.email === eu) return ['Você deve ', h('span', { class: 'valor' }, brl(valor)), ' a ' + outro(ac.credor.email)];
+  if (ac.credor.email === eu) return [outro(ac.devedor.email) + ' deve ', h('span', { class: 'valor' }, brl(valor)), ' a você'];
+  return [primeiroNome(ac.devedor.nome) + ' deve ', h('span', { class: 'valor' }, brl(valor)), ' a ' + primeiroNome(ac.credor.nome)];
+}
+function blocoAcerto(r, perfil, ir) {
+  const ac = r.acerto;
+  if (!ac.completo) return h('div', { class: 'aviso info' }, ico('info'), ' Assim que ', h('b', {}, 'a outra pessoa'), ' criar a conta dela (pelo mesmo link, em “Criar conta”), o app passa a calcular quem deve a quem.');
+  let frase, detalhe, zerado = false;
+  if (!ac.devido && !ac.pendente) { frase = ['Nada a acertar neste mês']; detalhe = 'Ainda não há gastos divididos, ou os dois lados se compensam.'; zerado = true; }
+  else if (!ac.pendente) { frase = ['Contas acertadas ', h('span', { class: 'valor' }, '✓')]; detalhe = `O saldo de ${brl(ac.devido)} já foi acertado.`; zerado = true; }
+  else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); detalhe = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : 'Soma das faturas que vencem no mês + pix/débito do mês — só o que foi dividido.'; }
+  return h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Acerto de ' + r.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, detalhe)),
+    h('button', { class: 'btn', type: 'button', onclick: () => ir('acerto') }, ico('balanca'), 'Ver acerto do mês'));
+}
+/** Seu orçamento: seus ganhos → sua parte dos gastos → sua parte nas metas → disponível. (Privado: o outro não vê.) */
+function orcamento(pn, ir) {
+  const c = pn.voce, renda = c.renda;
+  if (!pn.tem_rendas || !renda) return h('div', { class: 'painel orcamento' }, h('h2', {}, 'Quanto você tem para gastar'),
+    h('div', { class: 'aviso info' }, 'Cadastre seus ganhos (salário e extras) para o app mostrar quanto sobra no mês, já descontada a sua parte de cartões, pix, gastos fixos e metas. ',
+      h('button', { class: 'btn mini', type: 'button', style: { marginLeft: '6px' }, onclick: () => ir('ganhos') }, ico('mais'), 'Cadastrar ganhos')));
+  const pct = v => renda > 0 ? Math.max(0, Math.min(100, v / renda * 100)) : 0;
+  const neg = c.disponivel < 0, hojeMes = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  const diasRest = pn.mes === hojeMes.slice(0, 7) ? pn.dias_no_mes - Number(hojeMes.slice(8, 10)) + 1 : null;
+  const acerto = c.receber - c.pagar;
+  return h('div', { class: 'painel orcamento' },
+    h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Seu orçamento — ' + pn.rotulo), h('p', { class: 'sub' }, 'Seus ganhos menos a sua parte dos gastos do mês (já contando o acerto) e o que você guarda nas metas. Só você vê estes números.'))),
+    h('div', { class: 'kpis' },
+      h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Seus ganhos'), h('div', { class: 'v' }, brl(renda))),
+      h('div', { class: 'kpi' }, h('div', { class: 'r' }, 'Sua parte dos gastos'), h('div', { class: 'v' }, brl(c.gasto)),
+        h('div', { class: 'd' },  `cartões ${brl(c.cartao)} · pix/débito ${brl(c.pix)}` + (c.terceiros > 0 ? ` · terceiros −${brl(c.terceiros)}` : '') + (acerto ? ` · acerto ${acerto > 0 ? '−' : '+'}${brl(Math.abs(acerto))}` : ''))),
+      h('div', { class: 'kpi ambar' }, h('div', { class: 'r' }, 'Guardar nas metas'), h('div', { class: 'v' }, brl(c.metas)), h('div', { class: 'd' }, 'sua parte do plano')),
+      h('div', { class: 'kpi ' + (neg ? 'vermelho' : 'verde') }, h('div', { class: 'r' }, neg ? 'Passou do orçamento' : 'Disponível para gastar'), h('div', { class: 'v' + (neg ? ' valor-neg' : '') }, brl(c.disponivel)),
+        h('div', { class: 'd' }, diasRest && !neg ? `≈ ${brl(Math.floor(c.disponivel / diasRest * 100) / 100)} por dia até o fim do mês` : neg ? 'gastos + metas acima dos ganhos' : ''))),
+    h('div', { class: 'barra-orc', title: `Gastos ${brl(c.gasto)} · Metas ${brl(c.metas)} · Disponível ${brl(Math.max(0, c.disponivel))}` },
+      h('i', { class: 'g', style: { width: pct(c.gasto) + '%' } }), h('i', { class: 'm', style: { width: pct(c.metas) + '%' } }), h('i', { class: 'd', style: { width: pct(Math.max(0, c.disponivel)) + '%' } })),
+    h('div', { class: 'legenda' }, h('span', {}, h('i', { style: { background: 'var(--acento)' } }), 'Gastos'), h('span', {}, h('i', { style: { background: 'var(--tangerina)' } }), 'Metas'), h('span', {}, h('i', { style: { background: 'var(--verde)' } }), 'Disponível'),
+      h('span', { style: { marginLeft: 'auto', fontWeight: 600 } }, c.uso_renda == null ? '' : `${String(c.uso_renda).replace('.', ',')}% dos ganhos já comprometidos`)));
+}
+/** Seu detalhamento: ganhos − seus cartões − seu pix ± acerto − metas = disponível. Ao lado, o que é do casal (ganhos dos dois). */
+function cartaoVoce(pn, perfil, faturas, ir) {
+  const p = pn.voce, linha = (rot, v, cls) => [h('span', { class: cls || '' }, rot), h('span', { class: cls || '' }, v)];
+  return h('div', { class: 'pessoa' },
+    h('header', {}, h('div', { class: 'avatar' }, iniciais(perfil.nome)), h('h3', {}, 'Seu mês'), p.uso_renda != null ? h('span', { class: 'chip ' + (p.disponivel < 0 ? 'aberta' : 'paga'), style: { marginLeft: 'auto' } }, String(p.uso_renda).replace('.', ',') + '% usado') : null),
+    h('div', { class: 'linhas' },
+      linha('Ganhos', brl(p.renda)),
+      linha('− Suas faturas', brl(p.cartao), 'sub'), (faturas || []).map(f => linha([f.nome, ' ', h('span', { class: 'chip ' + (f.paga ? 'paga' : 'aberta') }, f.paga ? 'paga' : 'vence ' + fmtData(f.vencimento).slice(0, 5))], brl(f.total), 'sub2')),
+      linha('− Seu pix / débito', brl(p.pix), 'sub'),
+      p.terceiros > 0 ? linha('+ Terceiros pagam', brl(p.terceiros), 'sub') : null,
+      p.receber > 0 ? linha('+ A receber no acerto', brl(p.receber), 'sub') : null, p.pagar > 0 ? linha('− A pagar no acerto', brl(p.pagar), 'sub') : null,
+      p.metas > 0 ? linha('− Metas', brl(p.metas), 'sub') : null,
+      linha('Disponível', h('span', { class: p.disponivel < 0 ? 'valor-neg' : '' }, brl(p.disponivel)), 'total')),
+    h('div', { class: 'acoes-linha', style: { marginTop: '12px' } }, h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('faturas') }, ico('cartao'), 'Faturas'), h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('gastos') }, ico('pix'), 'Pix e débito'), h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('ganhos') }, ico('carteira'), 'Ganhos')));
+}
+function cartaoCasal(pn, ir) {
+  const o = pn.parceiro, linha = (rot, v, cls) => [h('span', { class: cls || '' }, rot), h('span', { class: cls || '' }, v)];
+  return h('div', { class: 'pessoa b' },
+    h('header', {}, h('div', { class: 'avatar' }, o ? iniciais(o.nome) : '?'), h('h3', {}, 'Do casal')),
+    h('div', { class: 'linhas' },
+      linha('Seus ganhos', brl(pn.voce.renda)), o ? linha('Ganhos de ' + primeiroNome(o.nome), brl(o.renda)) : null,
+      linha('Ganhos somados', brl(pn.casal.renda), 'total'),
+      linha('Metas por mês (os dois)', brl(pn.casal.metas), 'sub'), o ? linha('parte de ' + primeiroNome(o.nome), brl(o.metas), 'sub2') : null),
+    h('p', { class: 'dica', style: { marginTop: '10px' } }, 'Faturas e gastos individuais de cada um são privados: aqui só aparece o que vocês combinaram compartilhar (ganhos, metas e acerto).'),
+    h('div', { class: 'acoes-linha', style: { marginTop: '8px' } }, h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('metas') }, ico('alvo'), 'Metas'), h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('acerto') }, ico('balanca'), 'Acerto')));
+}
+/** Limites por categoria: barra da sua parte gasta vs. o teto que você definiu. */
+function painelLimites(pn, recarregar) {
+  const cor = n => n === 'estourou' ? 'var(--vermelho)' : n === 'atencao' ? 'var(--tangerina)' : 'var(--verde)';
+  const rot = l => l.nivel === 'estourou' ? `passou ${brl(-l.resta)}` : `resta ${brl(l.resta)}`;
+  return h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Limites por categoria'), h('p', { class: 'sub' }, 'Sua parte dos gastos no mês contra o teto que você definiu. Aviso aos 80% e aos 100%.')),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: () => gerenciarLimites(recarregar) }, ico('editar'), pn.limites.length ? 'Editar limites' : 'Definir limites')),
+    pn.limites.length ? h('div', {}, pn.limites.map(l => h('div', { class: 'limite' },
+      h('div', { class: 'limite-cab' }, h('span', {}, l.categoria), h('span', { class: 'chip ' + (l.nivel === 'ok' ? 'paga' : l.nivel === 'atencao' ? 'aberta' : 'estourou') }, l.nivel === 'ok' ? 'ok' : l.nivel === 'atencao' ? 'atenção' : 'estourou')),
+      h('div', { class: 'trilho', title: `${l.categoria}: ${brl(l.gasto)} de ${brl(l.teto)} (${String(l.pct).replace('.', ',')}%)`, role: 'img', 'aria-label': `${l.categoria}: ${brl(l.gasto)} de ${brl(l.teto)}` },
+        h('i', { style: { width: Math.min(100, l.pct) + '%', background: cor(l.nivel) } })),
+      h('div', { class: 'limite-rod' }, h('span', {}, `${brl(l.gasto)} de ${brl(l.teto)} · ${String(l.pct).replace('.', ',')}%`), h('span', {}, rot(l))))))
+      : h('div', { class: 'vazio' }, 'Defina um teto mensal para as categorias que você quer controlar (ex.: Restaurante / delivery R$ 600).'));
+}
+async function gerenciarLimites(aoSalvar) {
+  const corpo = h('div', {}, h('p', { class: 'carregando' }, 'Carregando…'));
+  const mm = modal({ titulo: 'Seus limites por categoria', corpo, botoes: [{ texto: 'Fechar', classe: 'sec', onclick: c => { c(); aoSalvar && aoSalvar(); } }] });
+  async function desenhar() {
+    const r = await GET('/api/limites?mes=' + estado.mes), listaId = 'cats-lim-' + Math.random().toString(36).slice(2, 7);
+    const cat = h('input', { type: 'text', list: listaId, maxlength: 40, placeholder: 'Categoria' }), val = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+    const salvar = async (id, corpoReq) => { msg.textContent = ''; try { id ? await PUT('/api/limites/' + id, corpoReq) : await POST('/api/limites', corpoReq); toast('Limite salvo.'); desenhar(); } catch (e) { msg.textContent = e.message; } };
+    limpar(corpo).append(
+      h('p', { class: 'dica', style: { margin: '10px 0' } }, 'Use o mesmo nome de categoria dos lançamentos. O app compara com a SUA parte: uma compra dividida de R$ 100 conta R$ 50 para você.'),
+      r.itens.length ? h('div', { class: 'linhas lim-lista' }, r.itens.map(l => {
+        const v = h('input', { type: 'text', inputmode: 'decimal', value: valorEdicao(l.teto), 'aria-label': 'Teto de ' + l.categoria, style: { width: '110px' } });
+        return [h('span', {}, l.categoria, h('span', { class: 'dica' }, ` · gasto ${brl(l.gasto)} (${String(l.pct).replace('.', ',')}%)`)),
+          h('span', { class: 'acoes-linha' }, v, h('button', { class: 'btn sec mini', type: 'button', title: 'Salvar', onclick: () => { const x = lerValor(v.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(l.id, { valor: x }); } }, ico('ok')),
+            h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { try { await DEL('/api/limites/' + l.id); toast('Limite excluído.'); desenhar(); } catch (e) { msg.textContent = e.message; } } }, ico('lixeira')))];
+      })) : null,
+      h('div', { class: 'form-grade', style: { marginTop: '14px' } }, campo('Categoria', h('div', {}, cat, h('datalist', { id: listaId }, r.categorias.map(c => h('option', { value: c })))), { obrig: true }), campo('Teto por mês (R$)', val, { obrig: true })),
+      h('div', { class: 'acoes-linha' }, h('button', { class: 'btn', type: 'button', onclick: () => { const x = lerValor(val.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(null, { categoria: cat.value, valor: x }); } }, ico('mais'), 'Adicionar limite')), msg);
+  }
+  try { await desenhar(); } catch (e) { limpar(corpo).append(h('div', { class: 'erro-txt' }, e.message)); }
+  return mm;
+}
+/** Evolução de 12 meses: ganhos × sua parte dos gastos × guardado (linhas, um só eixo em R$). */
+function evolucao(pn) {
+  const ms = pn.evolucao || []; if (!ms.some(m => m.ganhos || m.gastos || m.guardado)) return null;
+  const S = [{ k: 'ganhos', nome: 'Ganhos', cor: '#1F8A63' }, { k: 'gastos', nome: 'Sua parte dos gastos', cor: '#2563EB' }, { k: 'guardado', nome: 'Guardado nas metas', cor: '#F28C38' }];
+  const NS = 'http://www.w3.org/2000/svg', el = (t, a, ...f) => { const e = document.createElementNS(NS, t); Object.entries(a || {}).forEach(([k, v]) => e.setAttribute(k, v)); f.forEach(c => e.append(c)); return e; };
+  const dica = h('div', { class: 'dica-graf', style: { display: 'none' } }), caixa = h('div', { class: 'graf-caixa' }, dica);
+  const max = Math.max(1, ...ms.flatMap(m => S.map(s => m[s.k])));
+  const passo = [100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000, 100000].find(p => max / p <= 5) || Math.ceil(max / 5), topo = Math.ceil(max / passo) * passo;
+  let larguraAtual = 0;
+  /** Desenha na largura real da caixa (texto sempre em 11px, sem esticar). */
+  function desenhar(W) {
+    if (!W || Math.abs(W - larguraAtual) < 4) return; larguraAtual = W;
+    const H = W < 500 ? 200 : 240, L = 46, R = 10, T = 10, B = 24, estreito = W < 500;
+    const x = i => L + (W - L - R) * (ms.length === 1 ? 0.5 : i / (ms.length - 1)), y = v => T + (H - T - B) * (1 - v / topo);
+    const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'grafico-evol', role: 'img', 'aria-label': 'Evolução dos últimos 12 meses: ganhos, sua parte dos gastos e guardado' });
+    for (let v = 0; v <= topo; v += passo) svg.append(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grade-l' }), el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'eixo' }, v >= 1000 ? (v / 1000).toLocaleString('pt-BR') + ' mil' : String(v)));
+    const cada = estreito ? 3 : ms.length > 8 ? 2 : 1;
+    ms.forEach((m, i) => { if ((ms.length - 1 - i) % cada === 0) svg.append(el('text', { x: x(i), y: H - 6, 'text-anchor': i === ms.length - 1 ? 'end' : i === 0 ? 'start' : 'middle', class: 'eixo' }, rotuloMesCurto(m.mes))); });
+    S.forEach(s => {
+      svg.append(el('polyline', { points: ms.map((m, i) => x(i) + ',' + y(m[s.k])).join(' '), fill: 'none', stroke: s.cor, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      ms.forEach((m, i) => svg.append(el('circle', { cx: x(i), cy: y(m[s.k]), r: estreito ? 3 : 4, fill: s.cor, stroke: '#fff', 'stroke-width': 2 })));
+    });
+    const guia = el('line', { y1: T, y2: H - B, class: 'guia', style: 'display:none' }); svg.append(guia);
+    const w = (W - L - R) / Math.max(1, ms.length - 1);
+    ms.forEach((m, i) => {
+      const alvo = el('rect', { x: x(i) - w / 2, y: 0, width: w, height: H, fill: 'transparent' });
+      const mostrar = () => { guia.setAttribute('x1', x(i)); guia.setAttribute('x2', x(i)); guia.style.display = '';
+        limpar(dica).append(h('b', {}, m.rotulo), ...S.map(s => h('div', {}, h('i', { style: { background: s.cor } }), s.nome + ': ' + brl(m[s.k]))), h('div', { class: 'sec-txt' }, 'Sobrou: ' + brl(m.saldo)));
+        dica.style.display = ''; const dir = x(i) > W * 0.55; dica.style.left = dir ? '' : (x(i) + 12) + 'px'; dica.style.right = dir ? (W - x(i) + 12) + 'px' : ''; };
+      alvo.addEventListener('mouseenter', mostrar); alvo.addEventListener('click', mostrar); svg.append(alvo);
+    });
+    svg.addEventListener('mouseleave', () => { guia.style.display = 'none'; dica.style.display = 'none'; });
+    const velho = caixa.querySelector('svg'); if (velho) velho.replaceWith(svg); else caixa.prepend(svg);
+  }
+  if (window.ResizeObserver) new ResizeObserver(en => desenhar(Math.floor(en[0].contentRect.width))).observe(caixa);
+  requestAnimationFrame(() => desenhar(caixa.clientWidth || 640));
+  const tab = h('div', { class: 'tabela-wrap', style: { display: 'none', marginTop: '10px' } }, h('table', { class: 't' }, h('thead', {}, h('tr', {}, h('th', {}, 'Mês'), S.map(s => h('th', { class: 'num' }, s.nome)), h('th', { class: 'num' }, 'Sobrou'))),
+    h('tbody', {}, ms.slice().reverse().map(m => h('tr', {}, h('td', {}, m.rotulo), S.map(s => h('td', { class: 'num' }, brl(m[s.k]))), h('td', { class: 'num' + (m.saldo < 0 ? ' valor-neg' : '') }, brl(m.saldo)))))));
+  const btnTab = h('button', { class: 'btn sec mini', type: 'button', onclick: () => { const v = tab.style.display === 'none'; tab.style.display = v ? '' : 'none'; btnTab.textContent = v ? 'Ver gráfico' : 'Ver tabela'; caixa.style.display = v ? 'none' : ''; } }, 'Ver tabela');
+  return h('div', { class: 'painel', style: { marginTop: '16px' } }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Evolução — últimos 12 meses'), h('p', { class: 'sub' }, 'Seus ganhos, sua parte dos gastos e o que você guardou nas metas, mês a mês.')), btnTab),
+    h('div', { class: 'legenda' }, S.map(s => h('span', {}, h('i', { style: { background: s.cor } }), s.nome))), caixa, tab);
+}
+function projecao(pj, pn) {
+  const cores = ['var(--pessoa-a)', 'var(--pessoa-b)'];
+  const totais = pj.meses.map((m, i) => pj.pessoas.reduce((s, p) => s + p.valores[i], 0)), max = Math.max(1, ...totais);
+  return h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Suas faturas nos próximos meses'), h('p', { class: 'sub' }, 'O que já está comprometido nos seus cartões (parcelas e gastos fixos que passam sozinhos para os meses seguintes).'))),
+    h('div', { class: 'legenda' }, pj.pessoas.map((p, i) => h('span', {}, h('i', { style: { background: cores[i] } }), primeiroNome(p.nome)))),
+    pj.meses.map((m, i) => h('div', { class: 'barra-proj', title: pj.pessoas.map(p => primeiroNome(p.nome) + ': ' + brl(p.valores[i])).join(' · ') },
+      h('span', {}, rotuloMesCurto(m.mes)), h('div', { class: 'trilho' }, pj.pessoas.map((p, j) => h('i', { style: { width: (p.valores[i] / max * 100) + '%', background: cores[j] } }))), h('span', { class: 'v' }, brl(totais[i])))),
+    pn && pn.voce.renda > 0 ? h('div', { class: 'dica', style: { marginTop: '6px' } }, `Para comparar: seus ganhos são ${brl(pn.voce.renda)} por mês.`) : null);
+}
+function categorias(pn) {
+  const lista = pn.categorias.slice(0, 8), max = Math.max(1, ...lista.map(c => c.valor)), total = pn.categorias.reduce((s, c) => s + c.valor, 0);
+  return h('div', { class: 'painel' }, h('h2', {}, 'Onde foi o dinheiro'), h('p', { class: 'sub' }, `Sua parte dos gastos por categoria em ${pn.rotulo}.`),
+    lista.length ? h('div', {}, lista.map(c => h('div', { class: 'barra-proj', title: `${c.nome}: ${brl(c.valor)}` }, h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.nome),
+      h('div', { class: 'trilho' }, h('i', { style: { width: (c.valor / max * 100) + '%', background: 'var(--acento)' } })), h('span', { class: 'v' }, total > 0 ? Math.round(c.valor / total * 100) + '%' : ''))),
+      h('div', { class: 'dica', style: { marginTop: '6px' } }, 'Dica: preencha a categoria ao lançar para este quadro ficar mais útil.')) : h('div', { class: 'vazio' }, 'Ainda não há gastos neste mês.'));
+}
+function contasDoMes(pn, perfil) {
+  return h('div', { class: 'painel' }, h('h2', {}, 'Suas contas do mês'), h('p', { class: 'sub' }, 'Suas faturas que vencem e seus gastos fixos de pix/débito.'),
+    pn.contas.length ? h('div', { class: 'linhas' }, pn.contas.map(x => [h('span', {}, fmtData(x.data).slice(0, 5), ' · ', x.descricao, h('span', { class: 'dica' }, ' · ' + (x.dono === perfil.email ? 'você' : primeiroNome(x.dono_nome))), ' ',
+      h('span', { class: 'chip ' + (x.paga ? 'paga' : 'aberta') }, x.tipo === 'FATURA' ? (x.paga ? 'paga' : 'em aberto') : (x.paga ? 'já passou' : 'a vencer'))), h('span', {}, brl(x.valor))])) : h('div', { class: 'vazio' }, 'Nenhuma conta neste mês.'));
+}
+function proximoMes(pn, r) {
+  const cmp = pn.comparacao, pr = pn.proximo;
+  return h('div', { class: 'painel' }, h('h2', {}, 'Comparativo e próximo mês'),
+    h('div', { class: 'linhas', style: { marginTop: '8px' } },
+      h('span', {}, 'Sua parte em ' + pn.rotulo), h('span', {}, brl(cmp.gasto_atual)),
+      h('span', { class: 'sub' }, 'em ' + cmp.rotulo_anterior), h('span', { class: 'sub' }, brl(cmp.gasto_anterior) + (cmp.variacao == null ? '' : ` (${cmp.variacao > 0 ? '+' : ''}${String(cmp.variacao).replace('.', ',')}%)`)),
+      h('span', {}, 'Já comprometido em ' + pr.rotulo), h('span', {}, brl(pr.comprometido)),
+      h('span', { class: 'sub' }, 'parcelas e gastos fixos'), h('span', { class: 'sub' }, pr.pct == null ? '' : `${String(pr.pct).replace('.', ',')}% dos ganhos`)),
+    r.terminam.length ? h('div', { style: { marginTop: '12px' } }, h('div', { class: 'dica', style: { fontWeight: 600, marginBottom: '4px' } }, 'Parcelamentos que terminam neste mês (alívio no próximo):'),
+      h('div', { class: 'linhas' }, r.terminam.map(p => [h('span', { class: 'sub' }, p.descricao + ' · ' + p.parcelas + 'x'), h('span', { class: 'sub' }, brl(p.valor_parcela))]))) : null);
+}
+function metasDoMes(m, perfil, ir) {
+  const ativas = (m && m.metas || []).filter(x => x.ativa && !x.atingida); if (!ativas.length) return null;
+  return h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Metas — guardar em ' + m.rotulo), h('p', { class: 'sub' }, `Plano: ${brl(m.total_por_mes)} por mês · falta ${brl(m.total_falta_no_mes)} neste mês`)),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('metas') }, ico('alvo'), 'Ver metas')),
+    h('div', { class: 'linhas' }, ativas.map(x => [h('span', {}, x.nome, h('span', { class: 'dica' }, ` · ${String(x.progresso).replace('.', ',')}% · até ${x.rotulo_alvo}`)), h('span', {}, x.falta_no_mes > 0 ? 'falta ' + brl(x.falta_no_mes) : 'em dia ✓')])));
+}
+async function render(alvo, { perfil, ir }) {
+  const corpo = h('div', {}, h('p', { class: 'carregando' }, 'Carregando…'));
+  const sel = seletorMes(m => carregar(m));
+  alvo.append(cabPagina('Olá, ' + primeiroNome(perfil.nome), 'Seu mês em um olhar: quanto sobra, quem deve a quem, limites, contas e metas.', sel.el), corpo);
+  async function carregar(mes) {
+    limpar(corpo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const [r, pn] = await Promise.all([GET('/api/resumo?mes=' + mes), GET('/api/painel?mes=' + mes)]); if (sel.valor() !== mes) return;
+    const minhas = ((r.pessoas.find(p => p.email === perfil.email) || {}).faturas || []).filter(f => f.total > 0 || f.paga);
+    limpar(corpo).append(...[
+      orcamento(pn, ir),
+      blocoAcerto(r, perfil, ir),
+      r.aberto && (r.aberto.valor !== r.acerto.restante_abs || !r.acerto.pendente || r.aberto.devedor.email !== r.acerto.pendente.devedor.email) ? h('div', { class: 'aviso atencao' }, ico('alerta'), ` Somando todos os meses, ${primeiroNome(r.aberto.devedor.nome)} ainda deve ${brl(r.aberto.valor)} a ${primeiroNome(r.aberto.credor.nome)}. `, h('a', { href: '#/acerto' }, 'Ver histórico')) : null,
+      pn.tem_rendas ? h('div', { class: 'pessoas' }, cartaoVoce(pn, perfil, minhas, ir), cartaoCasal(pn, ir)) : null,
+      h('div', { class: 'grade g2' }, categorias(pn), painelLimites(pn, () => carregar(sel.valor()))),
+      evolucao(pn),
+      h('div', { class: 'grade g2', style: { marginTop: '16px' } }, contasDoMes(pn, perfil), proximoMes(pn, r)),
+      h('div', { class: 'grade g2', style: { marginTop: '16px' } }, projecao(r.projecao, pn), metasDoMes(r.metas, perfil, ir) || h('div'))].filter(Boolean));
+  }
+  await carregar(sel.valor());
+}
+return { render, fraseAcerto, gerenciarLimites };
+})();
+</script>

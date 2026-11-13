@@ -1,0 +1,140 @@
+<script>/* main */
+const __m_main = (() => {
+const { h, ico, limpar, qs, iniciais } = __m_util;
+const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
+const { toast, campo } = __m_ui;
+const ROTAS = {
+  resumo: { titulo: 'Início', icone: 'home', grupo: 'Visão geral', cor: '#0E4D5B', mod: () => __m_pages_resumo },
+  acerto: { titulo: 'Acerto do mês', icone: 'balanca', grupo: 'Visão geral', cor: '#5E5CE6', mod: () => __m_pages_acerto },
+  faturas: { titulo: 'Cartões e faturas', icone: 'cartao', grupo: 'Lançamentos', cor: '#F28C38', mod: () => __m_pages_faturas },
+  gastos: { titulo: 'Pix e débito', icone: 'pix', grupo: 'Lançamentos', cor: '#30B0C7', mod: () => __m_pages_gastos },
+  fixos: { titulo: 'Gastos fixos', icone: 'repetir', grupo: 'Lançamentos', cor: '#AF52DE', mod: () => __m_pages_fixos },
+  ganhos: { titulo: 'Ganhos', icone: 'carteira', grupo: 'Planejamento', cor: '#34C759', mod: () => __m_pages_ganhos },
+  metas: { titulo: 'Metas', icone: 'alvo', grupo: 'Planejamento', cor: '#FF3B30', mod: () => __m_pages_metas },
+  conta: { titulo: 'Minha conta', icone: 'usuario', grupo: 'Conta', cor: '#8E8E93', mod: () => __m_pages_conta },
+  historico: { titulo: 'Histórico de alterações', icone: 'relogio', grupo: 'Conta', cor: '#636366', mod: () => __m_pages_historico },
+};
+const PUBLICAS = ['login', 'cadastro'];
+const raiz = document.getElementById('app');
+let shell = null, rotaAtual = null;
+
+function rotaDoHash() { const [caminho, q] = location.hash.replace(/^#\/?/, '').split('?'); return { nome: caminho || '', query: Object.fromEntries(new URLSearchParams(q || '')) }; }
+function ir(nome, query) { location.hash = '#/' + nome + (query && Object.keys(query).length ? '?' + qs(query) : ''); }
+window.addEventListener('hashchange', rotear);
+
+/** Logotipo: casa-cofrinho tangerina sobre vidro petróleo (o mesmo desenho do ícone da tela inicial do iPhone). */
+let nLogo = 0;
+const logo = () => { const NS = 'http://www.w3.org/2000/svg', el = (t, a, ...f) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); e.append(...f); return e; };
+  const id = 'lg' + (++nLogo), stop = (o, c, op) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': op == null ? 1 : op });
+  const s = el('svg', { viewBox: '0 0 64 64', class: 'logo', 'aria-hidden': 'true' });
+  s.append(el('defs', {},
+      el('linearGradient', { id: id + 'f', x1: 0, y1: 0, x2: 1, y2: 1 }, stop(0, '#16697A'), stop(.55, '#0E4D5B'), stop(1, '#06252D')),
+      el('radialGradient', { id: id + 'b', cx: .8, cy: .15, r: .75 }, stop(0, '#F28C38', .55), stop(1, '#F28C38', 0)),
+      el('linearGradient', { id: id + 'c', x1: 0, y1: 0, x2: 0, y2: 1 }, stop(0, '#FFC48A'), stop(1, '#F07F22'))),
+    el('rect', { width: 64, height: 64, rx: 15, fill: 'url(#' + id + 'f)' }), el('rect', { width: 64, height: 64, rx: 15, fill: 'url(#' + id + 'b)' }),
+    el('rect', { x: 12.5, y: 15, width: 39, height: 37, rx: 9, fill: '#fff', 'fill-opacity': .14, stroke: '#fff', 'stroke-opacity': .35, 'stroke-width': .6 }),
+    el('path', { d: 'M19 31 L32 20 L45 31 V45.5 a1.8 1.8 0 0 1 -1.8 1.8 H20.8 a1.8 1.8 0 0 1 -1.8 -1.8 Z', fill: 'none', stroke: 'url(#' + id + 'c)', 'stroke-width': 4, 'stroke-linejoin': 'round' }),
+    el('rect', { x: 28.3, y: 26.2, width: 7.4, height: 2.6, rx: 1.3, fill: 'url(#' + id + 'c)' }), el('circle', { cx: 32, cy: 37.5, r: 4.9, fill: 'url(#' + id + 'c)' }));
+  return s; };
+/** Bloco de ícone colorido, como nos Ajustes do iPhone. */
+const bloco = (nome, cor) => h('span', { class: 'bloco-ico', style: { background: cor } }, ico(nome));
+function paginaAcesso(conteudo) {
+  limpar(raiz); shell = null;
+  raiz.append(h('div', { class: 'acesso' }, h('header', { class: 'cab-acesso' }, logo(), h('div', {}, h('h2', {}, 'Gestão Financeira'), h('p', {}, 'Cartões, pix/débito e o acerto do mês do casal'))), conteudo,
+    h('footer', { class: 'rodape-acesso' }, 'Gestão Financeira · ' + (window.APP_VERSAO || ''))));
+}
+
+// ---------- entrar ----------
+function telaLogin() {
+  const msg = h('p', { class: 'dica', role: 'status', 'aria-live': 'polite', style: { minHeight: '1.4em' } });
+  const email = h('input', { type: 'email', id: 'email', autocomplete: 'username', required: true }), senha = h('input', { type: 'password', id: 'senha', autocomplete: 'current-password', required: true });
+  const manter = h('input', { type: 'checkbox', id: 'manter', checked: true }); let ocupado = false;
+  const btn = h('button', { class: 'btn', type: 'submit' }, 'Entrar'), linkCad = h('div', { style: { marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--linha)', textAlign: 'center' } }, h('p', { class: 'dica', style: { margin: '0 0 8px' } }, 'Ainda não tem conta?'), h('a', { class: 'btn sec', href: '#/cadastro', style: { width: '100%', justifyContent: 'center', padding: '12px' } }, ico('usuario'), 'Criar conta'));
+  const travar = v => { ocupado = v; btn.disabled = v; };
+  const depois = perfil => { estado.perfil = perfil; estado.dominios = null; msg.textContent = 'Entrando…'; location.hash = '#/'; rotear(); };
+  const form = h('form', { onsubmit: async e => {
+    e.preventDefault(); if (ocupado) return; travar(true); msg.textContent = 'Aguarde…';
+    try { const r = await POST('/api/auth/entrar', { email: email.value, senha: senha.value, manter: manter.checked }); senha.value = '';
+      definirManter(r.token || ''); depois(r.perfil);
+    } catch (er) { msg.textContent = er.message; } finally { travar(false); } } },
+    campo('E-mail', email), campo('Senha', senha), h('label', { class: 'manter' }, manter, 'Manter-me conectado neste aparelho'), h('div', { style: { height: '12px' } }), btn);
+  paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Entrar'), h('p', { class: 'dica' }, 'Use o e-mail e a senha que você criou no cadastro.'), form, msg, linkCad,
+    h('p', { class: 'dica', style: { textAlign: 'center' } }, 'Esqueceu a senha? Peça para a outra pessoa redefinir em “Minha conta”.')));
+  // quando as duas contas já existem, troca o botão por um aviso (o cadastro fecha sozinho)
+  GET('/api/config', { semRedirecionar: true }).then(cfg => { if (cfg.cadastro_aberto === false) limpar(linkCad).append(h('p', { class: 'dica', style: { margin: 0 } }, 'As duas contas do casal já foram criadas.')); }).catch(() => {});
+  // "manter-me conectado": retomada automática (no máximo 1 tentativa a cada 30 s, para nunca entrar em laço)
+  const token = lerManter();
+  if (token) { let ult = 0; try { ult = Number(sessionStorage.getItem('cc_retomada_ts') || 0); sessionStorage.setItem('cc_retomada_ts', String(Date.now())); } catch (_) {}
+    if (Date.now() - ult > 30000) { travar(true); msg.textContent = 'Retomando sua sessão…'; POST('/api/auth/retomar', { token }, { semRedirecionar: true }).then(r => depois(r.perfil)).catch(er => { travar(false); msg.textContent = er.message; definirManter(''); }); } }
+}
+// ---------- criar conta ----------
+async function telaCadastro() {
+  const nome = h('input', { type: 'text', required: true, maxlength: 80, autocomplete: 'name', placeholder: 'Como você quer aparecer no app' }), email = h('input', { type: 'email', required: true, autocomplete: 'email' });
+  const s1 = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' }), s2 = h('input', { type: 'password', autocomplete: 'new-password' });
+  const resultado = h('div'), btn = h('button', { class: 'btn', type: 'submit' }, 'Criar conta');
+  let aberto = true; try { aberto = (await GET('/api/config', { semRedirecionar: true })).cadastro_aberto; } catch (_) {}
+  paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Criar conta'),
+    aberto ? h('div', {}, h('p', { class: 'dica' }, 'O app é só para vocês dois: aceita no máximo duas contas. Depois de criar, é só entrar.'),
+      h('form', { onsubmit: async e => { e.preventDefault(); btn.disabled = true; limpar(resultado);
+        try { if (s1.value !== s2.value) throw new Error('As senhas não conferem.'); const r = await POST('/api/cadastro', { nome: nome.value, email: email.value, senha: s1.value });
+          resultado.append(h('div', { class: 'aviso ok' }, r.mensagem, ' ', h('a', { href: '#/login' }, 'Entrar'))); e.target.reset();
+        } catch (er) { resultado.append(h('div', { class: 'aviso erro' }, er.message)); } finally { btn.disabled = false; } } },
+        campo('Seu nome', nome, { obrig: true }), campo('E-mail', email, { obrig: true }), campo('Crie sua senha', s1, { obrig: true }), campo('Repita a senha', s2, { obrig: true }), h('div', { style: { height: '14px' } }), btn), resultado)
+      : h('div', { class: 'aviso info' }, 'O cadastro está fechado: o app já tem as duas contas do casal.'),
+    h('p', { style: { textAlign: 'center' } }, h('a', { href: '#/login' }, 'Voltar para entrar'))));
+}
+
+// ---------- shell autenticado ----------
+function desenharShell() {
+  const p = estado.perfil; limpar(raiz);
+  const grupos = {}; Object.entries(ROTAS).forEach(([k, r]) => { (grupos[r.grupo] = grupos[r.grupo] || []).push([k, r]); });
+  const nav = h('aside', { class: 'nav', id: 'nav' }, h('a', { class: 'marca', href: '#/' }, logo(), h('div', {}, h('b', {}, 'Gestão Financeira'), h('small', {}, p.parceiro ? p.parceiro.apelido + ' & ' + p.apelido : 'Controle do casal'))),
+    h('nav', { 'aria-label': 'Menu principal' }, Object.entries(grupos).map(([g, itens]) => [h('div', { class: 'grupo' }, g),
+      itens.map(([k, r]) => h('a', { class: 'item', href: '#/' + k, 'data-rota': k, onclick: () => fecharMenu() }, bloco(r.icone, r.cor), h('span', { class: 'rot' }, r.titulo)))])),
+    h('div', { class: 'eu', title: p.email }, h('div', { class: 'avatar', style: { background: 'var(--pessoa-a)' } }, iniciais(p.nome)), h('div', {}, h('b', {}, p.nome), h('span', {}, p.email))));
+  const trilha = h('div', { class: 'trilha' }), conteudo = h('div', { class: 'conteudo', id: 'conteudo' });
+  const depoisDeLancar = () => { if (rotaAtual) rotear(); };
+  const sair = h('button', { class: 'btn sec mini sair', type: 'button', title: 'Sair', onclick: async () => { const t = lerManter(); definirManter(''); try { await POST('/api/auth/sair', { token: t }); } catch (_) {} definirSessao(''); estado.perfil = null; estado.dominios = null; location.hash = '#/login'; rotear(); } }, ico('sair'), h('span', { class: 'txt' }, 'Sair'));
+  const main = h('div', { class: 'principal' }, h('div', { class: 'topo' }, h('button', { class: 'btn sec mini menu-btn', type: 'button', 'aria-label': 'Abrir menu', onclick: () => abrirMenu() }, ico('menu')), trilha,
+      h('button', { class: 'btn mini pix', type: 'button', title: 'Novo gasto no pix/débito', onclick: () => __m_pages_gastos.formGasto(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Pix')),
+      h('button', { class: 'btn mini', type: 'button', title: 'Nova compra no cartão', onclick: () => __m_pages_faturas.formCompra(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Cartão')), sair),
+    conteudo, h('footer', { class: 'rodape' }, 'Gestão Financeira ' + (window.APP_VERSAO || '')));
+  // celular: barra de abas flutuante (vidro), como nos apps do iPhone; "Mais" abre o menu completo
+  const ABAS = ['resumo', 'acerto', 'faturas', 'gastos'];
+  const veu = h('div', { class: 'veu-menu', onclick: () => fecharMenu() });
+  const abas = h('nav', { class: 'abas-ios', 'aria-label': 'Atalhos' },
+    ABAS.map(k => h('a', { class: 'aba', href: '#/' + k, 'data-rota': k }, ico(ROTAS[k].icone), h('span', {}, k === 'faturas' ? 'Cartões' : k === 'gastos' ? 'Pix' : k === 'acerto' ? 'Acerto' : ROTAS[k].titulo))),
+    h('button', { class: 'aba', type: 'button', 'data-rota': '__mais', onclick: () => abrirMenu() }, ico('menu'), h('span', {}, 'Mais')));
+  raiz.append(h('div', { class: 'app' }, nav, main), veu, abas); shell = { nav, trilha, conteudo, abas, veu };
+}
+function abrirMenu() { if (!shell) return; shell.nav.classList.add('aberto'); shell.veu.classList.add('aberto'); }
+function fecharMenu() { if (!shell) return; shell.nav.classList.remove('aberto'); shell.veu.classList.remove('aberto'); }
+function rotear() { return rotearInterno().catch(erroFatal); }
+function erroFatal(e) { console.error(e); try { toast('Erro: ' + ((e && e.message) || e), true); } catch (_) {} }
+async function rotearInterno() {
+  const { nome, query } = rotaDoHash();
+  if (!estado.perfil) { try { const r = await GET('/api/eu', { semRedirecionar: true }); estado.perfil = r.perfil; } catch (_) {} }
+  // sem sessão nesta aba, mas com "manter-me conectado": entra direto, antes de mostrar a tela de login
+  if (!estado.perfil && lerManter() && nome !== 'cadastro') { limpar(raiz).append(h('p', { class: 'carregando' }, 'Entrando…')); try { await retomarSilencioso(); } catch (_) {} }
+  if (!estado.perfil) { if (!PUBLICAS.includes(nome)) { location.hash = '#/login'; return; } return nome === 'cadastro' ? telaCadastro() : telaLogin(); }
+  if (!nome || !ROTAS[nome]) { if (nome !== 'resumo') { location.hash = '#/resumo'; return; } }
+  if (!shell) desenharShell();
+  const r = ROTAS[nome]; rotaAtual = nome;
+  shell.nav.querySelectorAll('a.item').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nome)); fecharMenu();
+  shell.abas.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nome || (a.dataset.rota === '__mais' && !['resumo', 'acerto', 'faturas', 'gastos'].includes(nome))));
+  limpar(shell.trilha).append(h('span', { class: 'trilha-app' }, 'Gestão Financeira › '), h('b', {}, r.titulo)); document.title = r.titulo + ' · Gestão Financeira';
+  limpar(shell.conteudo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+  try {
+    const dom = await carregarDominios(); if (rotaAtual !== nome) return;
+    await r.mod().render(limpar(shell.conteudo), { query, perfil: estado.perfil, dom, ir });
+  } catch (e) { if (rotaAtual !== nome) return; limpar(shell.conteudo).append(h('div', { class: 'aviso erro' }, 'Não foi possível abrir esta tela: ' + (e.message || e))); console.error(e); }
+  window.scrollTo(0, 0);
+}
+definirAoExpirar(() => { toast('Sua sessão expirou. Entre novamente.', true); shell = null; location.hash = '#/login'; rotear(); });
+// site do GitHub Pages ainda sem o link do Apps Script: explica o que falta em vez de mostrar um erro
+if (window.SITE_ESTATICO && !window.API_URL) paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Falta um passo'),
+  h('p', {}, 'Abra o arquivo config.js no GitHub e cole o link do App da Web (o que termina em /exec). Depois de salvar, aguarde 1 minuto e recarregue esta página.')));
+else rotear();
+return { ir };
+})();
+</script>

@@ -1,0 +1,83 @@
+<script>/* pages/conta */
+const __m_pages_conta = (() => {
+const { h, limpar, fmtData, iniciais, ico } = __m_util;
+const { GET, POST, PUT, estado, carregarDominios } = __m_api;
+const { cabPagina, toast, campo } = __m_ui;
+
+/** Avisos por e-mail: lembretes de vencimento, limites e acerto; resumo do mês no dia 1º. */
+function painelAvisos(perfil) {
+  const corpo = h('div', {}, h('p', { class: 'carregando' }, 'Carregando…')), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const OPC = [['lembretes', 'Lembretes de vencimento', 'Suas faturas e gastos fixos de pix/débito que vencem em até 3 dias, e o acerto pendente no fim do mês.'],
+    ['limites', 'Alertas de limite', 'Quando uma categoria passar de 80% e de 100% do teto que você definiu.'],
+    ['resumo', 'Resumo do mês (dia 1º)', 'Seus ganhos, sua parte dos gastos, quanto guardou, categorias, limites e o acerto do mês que fechou.']];
+  (async () => {
+    try {
+      const r = await GET('/api/avisos');
+      limpar(corpo).append(...[...OPC.map(([k, rot, desc]) => h('label', { class: 'chk-linha' }, h('input', { type: 'checkbox', checked: r.prefs[k], onchange: async ev => {
+          msg.textContent = ''; try { await PUT('/api/avisos', { [k]: ev.target.checked }); toast(ev.target.checked ? rot + ': ligado.' : rot + ': desligado.'); } catch (e) { ev.target.checked = !ev.target.checked; msg.textContent = e.message; } } }),
+        h('span', {}, h('b', {}, rot), h('div', { class: 'dica' }, desc)))),
+        r.agendado === false ? h('div', { class: 'aviso atencao' }, ico('alerta'), ' O envio automático ainda não está ligado: quem instalou o app precisa executar ', h('b', {}, 'instalar()'), ' (ou criarAcionadorAvisos) no editor do Apps Script.') : null,
+        h('div', { class: 'acoes-linha', style: { marginTop: '8px' } }, h('button', { class: 'btn sec', type: 'button', onclick: async ev => {
+          msg.textContent = ''; ev.target.disabled = true; try { const t = await POST('/api/avisos/teste', {}); toast('E-mail de teste enviado para ' + t.para + '.'); } catch (e) { msg.textContent = e.message; } ev.target.disabled = false; } }, ico('ok'), 'Enviar e-mail de teste')), msg].filter(Boolean));
+    } catch (e) { limpar(corpo).append(h('div', { class: 'erro-txt' }, e.message)); }
+  })();
+  return h('div', { class: 'painel' }, h('h2', {}, 'Avisos por e-mail'), h('p', { class: 'sub' }, 'Enviados para ' + perfil.email + ' às 8h. Só com as suas contas — o outro não recebe nada seu.'), corpo);
+}
+function render(alvo, { perfil }) {
+  const nome = h('input', { type: 'text', value: perfil.nome, maxlength: 80 }), msgNome = h('div', { class: 'erro-txt', role: 'alert' });
+  const at = h('input', { type: 'password', autocomplete: 'current-password' }), n1 = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' }), n2 = h('input', { type: 'password', autocomplete: 'new-password' }), msgSenha = h('div', { class: 'erro-txt', role: 'alert' });
+  const minha = h('input', { type: 'password', autocomplete: 'current-password' }), p1 = h('input', { type: 'password', autocomplete: 'new-password' }), p2 = h('input', { type: 'password', autocomplete: 'new-password' }), msgPar = h('div', { class: 'erro-txt', role: 'alert' });
+  const par = perfil.parceiro;
+  alvo.append(cabPagina('Minha conta', 'Seu nome, sua senha, avisos por e-mail, limites e o acesso do(a) parceiro(a).'),
+    h('div', { class: 'grade g2' },
+      h('div', { class: 'painel' }, h('h2', {}, 'Seus dados'), h('p', { class: 'sub' }, 'E-mail de acesso: ' + perfil.email),
+        campo('Nome', nome), msgNome, h('div', { style: { marginTop: '12px' } }, h('button', { class: 'btn', type: 'button', onclick: async () => {
+          msgNome.textContent = ''; try { const r = await PUT('/api/conta', { nome: nome.value }); estado.perfil = r.perfil; await carregarDominios(true); toast('Nome atualizado.'); location.reload(); } catch (e) { msgNome.textContent = e.message; } } }, 'Salvar nome'))),
+      h('div', { class: 'painel' }, h('h2', {}, 'Alterar minha senha'),
+        campo('Senha atual', at), campo('Nova senha', n1), campo('Repita a nova senha', n2), msgSenha,
+        h('div', { style: { marginTop: '12px' } }, h('button', { class: 'btn', type: 'button', onclick: async () => {
+          msgSenha.textContent = ''; if (n1.value !== n2.value) { msgSenha.textContent = 'As senhas não conferem.'; return; }
+          try { await POST('/api/auth/alterar-senha', { atual: at.value, nova: n1.value }); at.value = n1.value = n2.value = ''; toast('Senha alterada.'); } catch (e) { msgSenha.textContent = e.message; } } }, ico('chave'), 'Alterar senha'))),
+      h('div', { class: 'painel' }, h('h2', {}, 'Parceiro(a)'),
+        par ? h('div', {}, h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', margin: '8px 0 4px' } }, h('div', { class: 'avatar', style: { background: 'var(--pessoa-b)' } }, iniciais(par.nome)), h('div', {}, h('b', {}, par.nome), h('div', { class: 'dica' }, par.email))),
+            h('p', { class: 'dica' }, `Se ${par.apelido} esquecer a senha, você pode criar uma nova senha para ${par.apelido} aqui (confirme com a sua senha). As sessões salvas dela(e) são encerradas.`),
+            campo('Sua senha (para confirmar)', minha), h('div', { class: 'form-grade' }, campo('Nova senha de ' + par.apelido, p1), campo('Repita', p2)), msgPar,
+            h('div', { style: { marginTop: '12px' } }, h('button', { class: 'btn sec', type: 'button', onclick: async () => {
+              msgPar.textContent = ''; if (p1.value !== p2.value) { msgPar.textContent = 'As senhas não conferem.'; return; }
+              try { await POST('/api/auth/redefinir-parceiro', { minha_senha: minha.value, nova: p1.value }); minha.value = p1.value = p2.value = ''; toast('Nova senha definida para ' + par.apelido + '.'); } catch (e) { msgPar.textContent = e.message; } } }, ico('chave'), 'Redefinir senha de ' + par.apelido)))
+          : h('div', { class: 'aviso info' }, 'Ninguém mais tem conta ainda. Envie o link deste app para a outra pessoa: na tela de entrada, ela clica em “Criar conta”. O app aceita só duas contas.')),
+      painelAvisos(perfil),
+      h('div', { class: 'painel' }, h('h2', {}, 'Limites por categoria'), h('p', { class: 'sub' }, 'Defina um teto mensal para as categorias que quer controlar. O Início mostra a barra de cada uma e o app avisa por e-mail aos 80% e aos 100%.'),
+        h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_resumo.gerenciarLimites() }, ico('editar'), 'Definir limites')),
+      h('div', { class: 'painel' }, h('h2', {}, 'Como o app funciona'),
+        h('ul', { style: { margin: '8px 0 0 18px', padding: 0, display: 'grid', gap: '6px', color: 'var(--tinta-2)' } },
+          h('li', {}, 'Cada um cadastra os próprios cartões e lança as próprias compras e pix/débito — o app registra quem lançou.'),
+          h('li', {}, 'Ao lançar, escolha: ', h('b', {}, 'Dividido'), ' (meio a meio), ', h('b', {}, 'Só meu'), ' (fora do acerto) ou ', h('b', {}, 'Todo do outro'), ' (o outro deve o valor inteiro).'),
+          h('li', {}, 'Compras parceladas entram sozinhas nas faturas dos meses seguintes, até a última parcela.'),
+          h('li', {}, 'O acerto do mês soma as faturas que vencem no mês + os pix/débito do mês e mostra quem deve a quem.'),
+          h('li', {}, 'Privacidade: cada um vê as próprias faturas, pix e gastos fixos; do outro, só o que é dividido. Ganhos e metas são do casal.')))));
+}
+return { render };
+})();
+</script>
+<script>/* pages/historico */
+const __m_pages_historico = (() => {
+const { h, limpar, ico } = __m_util;
+const { GET } = __m_api;
+const { cabPagina, tabela } = __m_ui;
+const fmtQuando = s => { if (!s) return ''; const d = new Date(s); return isNaN(d) ? s : d.toLocaleString('pt-BR', { timeZone: 'America/Recife', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+async function render(alvo) {
+  const busca = h('input', { type: 'search', placeholder: 'Buscar (ação, nome, ID…)' }), lista = h('div', {});
+  alvo.append(cabPagina('Histórico de alterações', 'Tudo o que foi lançado, alterado ou excluído — e por quem.'), h('div', { class: 'painel' }, h('div', { class: 'filtros', style: { marginBottom: '12px' } }, h('div', {}, busca)), lista));
+  let t; busca.addEventListener('input', () => { clearTimeout(t); t = setTimeout(carregar, 350); });
+  async function carregar() {
+    limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/historico?limite=300' + (busca.value ? '&q=' + encodeURIComponent(busca.value) : ''));
+    limpar(lista).append(tabela([{ titulo: 'Quando', f: a => fmtQuando(a.quando) }, { titulo: 'Quem', k: 'usuario_nome' }, { titulo: 'Ação', k: 'acao' }, { titulo: 'Registro', k: 'entidade_id' },
+      { titulo: 'Detalhe', f: a => h('span', { class: 'sec-txt', style: { overflowWrap: 'anywhere' } }, String(a.detalhe || '').slice(0, 160)) }], r, { vazio: 'Nada encontrado.' }));
+  }
+  await carregar();
+}
+return { render };
+})();
+</script>

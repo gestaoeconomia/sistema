@@ -1,0 +1,321 @@
+<script>
+window.__erros = []; window.addEventListener('error', function (e) {
+  try {
+    var det = (e.message || 'erro') + ' (linha ' + e.lineno + ', coluna ' + (e.colno || 0) + ')';
+    window.__erros.push(det); var a = document.getElementById('app');
+    if (a && a.querySelector('.carregando')) { var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;color:#a00;font:12px monospace;padding:16px;max-width:900px;margin:20px auto;background:#fff3f0'; pre.textContent = 'Falha ao iniciar a tela:\n' + det; a.innerHTML = ''; a.appendChild(pre); }
+  } catch (_) {}
+});
+</script>
+<script>/* util */
+const __m_util = (() => {
+// Utilitários de DOM e formatação. Todo texto vindo do servidor entra no DOM por textContent (sem innerHTML) — evita XSS.
+function h(tag, attrs, ...filhos) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k === 'value') el.value = v;
+    else if (k in el && k !== 'list' && k !== 'form') { try { el[k] = v; } catch (_) { el.setAttribute(k, v); } }
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  const add = f => { if (f == null || f === false) return; if (Array.isArray(f)) return f.forEach(add); el.append(f instanceof Node ? f : document.createTextNode(String(f))); };
+  filhos.forEach(add); return el;
+}
+const limpar = el => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
+const fmtDataCurta = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+const fmtN = (n, c = 0) => n == null ? '—' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+const brl = v => (Number(v) < 0 ? '− ' : '') + 'R$ ' + fmtN(Math.abs(Number(v) || 0), 2);
+const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const rotuloMes = m => m ? cap(MESES[Number(m.slice(5, 7)) - 1]) + ' de ' + m.slice(0, 4) : '';
+const rotuloMesCurto = m => m ? MESES_CURTOS[Number(m.slice(5, 7)) - 1] + '/' + m.slice(2, 4) : '';
+function somarMeses(mes, n) { let a = Number(mes.slice(0, 4)), m = Number(mes.slice(5, 7)) - 1 + n; a += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return a + '-' + String(m + 1).padStart(2, '0'); }
+const qs = o => Object.entries(o).filter(([, v]) => v !== '' && v != null).map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const iniciais = nome => String(nome || '').split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+const primeiroNome = nome => String(nome || '').trim().split(/\s+/)[0] || '';
+/** "1.234,56" | "1234,56" | "1234.56" | 1234.56 → número (NaN se inválido) */
+function lerValor(v) {
+  if (typeof v === 'number') return v; let s = String(v || '').trim().replace(/[R$\s]/g, ''); if (!s) return NaN;
+  const neg = /^[-−]/.test(s); s = s.replace(/^[-−]/, '');
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); else if (!/^\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s); return isNaN(n) ? NaN : (neg ? -n : n);
+}
+/**
+ * Máscara de dinheiro: em todo campo de valor (inputmode="decimal"), os dígitos entram da direita, como no app do banco:
+ * 1 → 0,01 · 150 → 1,50 · 123456 → 1.234,56. Um "-" em qualquer lugar deixa o valor negativo (estorno).
+ * Campos que não são dinheiro (ex.: rendimento em %) usam data-livre.
+ */
+function mascararMoeda(el) {
+  const v = el.value, neg = /[-−]/.test(v), dig = v.replace(/\D/g, '').replace(/^0+/, '').slice(0, 13);
+  if (!dig) { el.value = neg ? '-' : ''; return; }
+  const c = dig.padStart(3, '0'), int = c.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  el.value = (neg ? '-' : '') + int + ',' + c.slice(-2);
+  try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { /* alguns tipos não aceitam */ }
+}
+document.addEventListener('input', ev => { const el = ev.target; if (el && el.matches && el.matches('input[inputmode=decimal]:not([data-livre])')) mascararMoeda(el); }, true);
+const valorEdicao = n => n == null || n === '' ? '' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const ICONES = {
+  home: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
+  cartao: 'M3 6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 10h18M7 15h4',
+  pix: 'M12 3l9 9-9 9-9-9zM8 12h8',
+  balanca: 'M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 006 0zM19 7l-3 7a3 3 0 006 0z',
+  usuario: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  relogio: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2',
+  carteira: 'M4 7a2 2 0 012-2h12v4M4 7v10a2 2 0 002 2h14V9H6a2 2 0 01-2-2zM16 14h.01',
+  sair: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9',
+  menu: 'M4 6h16M4 12h16M4 18h16', info: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 8h.01M11 12h1v4h1',
+  alerta: 'M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z',
+  ok: 'M5 13l4 4L19 7', x: 'M6 6l12 12M18 6L6 18', mais: 'M12 5v14M5 12h14',
+  esq: 'M15 18l-6-6 6-6', dir: 'M9 18l6-6-6-6',
+  editar: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+  lixeira: 'M4 7h16M10 11v6M14 11v6M5 7l1 13a2 2 0 002 2h8a2 2 0 002-2l1-13M9 7V4h6v3',
+  baixar: 'M12 4v12m0 0l-4-4m4 4l4-4M4 20h16',
+  chave: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 11-7.8 7.8 5.5 5.5 0 017.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+  camadas: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+  troca: 'M7 7h13l-4-4M17 17H4l4 4',
+  repetir: 'M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3',
+  alvo: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 17a5 5 0 100-10 5 5 0 000 10zM12 13a1 1 0 100-2 1 1 0 000 2z',
+  aviao: 'M10.5 21l1.5-4 1.5 4M21 15l-9-4.5V5a1.5 1.5 0 00-3 0v5.5L3 13.5V15l6-1.5V18l-2 1.5V21l3.5-1 3.5 1v-1.5L12 18v-4.5z',
+  carro: 'M5 17h14M6 17v2M18 17v2M3 13l2-5a2 2 0 012-1.5h10A2 2 0 0119 8l2 5v4H3zM7 14h.01M17 14h.01',
+  escudo: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+  livro: 'M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5M8 7h7',
+  arquivo: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h6',
+};
+function ico(nome, extra) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', ICONES[nome] || ICONES.info); s.append(p); return s;
+}
+return { h, limpar, fmtData, fmtDataCurta, fmtN, brl, hoje, MESES, cap, rotuloMes, rotuloMesCurto, somarMeses, qs, semAcento, iniciais, primeiroNome, lerValor, valorEdicao, ico };
+})();
+</script>
+<script>/* api */
+const __m_api = (() => {
+// Cliente da API: as chamadas vão por google.script.run.api(...) (Apps Script), com a mesma interface de um fetch REST.
+class ErroApi extends Error { constructor(msg, status, dados) { super(msg); this.status = status; this.dados = dados; } }
+const estado = { perfil: null, dominios: null, mes: null };
+let aoExpirar = () => {};
+const definirAoExpirar = fn => { aoExpirar = fn; };
+/**
+ * Duas formas de falar com o servidor:
+ *  • página aberta pelo link do Google (script.google.com): google.script.run.api(req);
+ *  • telas hospedadas fora do Google (window.API_URL = link /exec): fetch SEM cookies da conta Google
+ *    (credentials: 'omit') — funciona mesmo com conta da empresa/Prefeitura logada no navegador.
+ */
+function rpcFetch(req) {
+  const ctl = window.AbortController ? new AbortController() : null, t = setTimeout(() => ctl && ctl.abort(), 90000);
+  return fetch(window.API_URL, { method: 'POST', body: JSON.stringify(req), headers: { 'Content-Type': 'text/plain;charset=utf-8' }, credentials: 'omit', redirect: 'follow', signal: ctl ? ctl.signal : undefined })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .catch(e => { throw new ErroApi(e && e.name === 'AbortError' ? 'O servidor não respondeu em 90 segundos. Atualize a página e tente de novo.' : 'Sem conexão com o servidor. Verifique a internet e tente novamente.', 0); })
+    .finally(() => clearTimeout(t));
+}
+function rpc(req) {
+  if (window.API_URL) return rpcFetch(req);
+  return new Promise((resolve, reject) => {
+    if (!(window.google && google.script && google.script.run)) return reject(new ErroApi('Este aplicativo precisa ser aberto pelo link do App da Web (Apps Script).', 0));
+    let feito = false; const fim = f => v => { if (!feito) { feito = true; clearTimeout(t); f(v); } };
+    const t = setTimeout(() => fim(reject)(new ErroApi('O servidor não respondeu em 90 segundos. Atualize a página e tente de novo.', 0)), 90000);
+    google.script.run.withSuccessHandler(fim(resolve)).withFailureHandler(e => fim(reject)(new ErroApi((e && e.message) || 'Sem conexão com o servidor. Verifique a internet e tente novamente.', 0))).api(req);
+  });
+}
+function blobDe(f) { const bin = atob(f.b64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new Blob([bytes], { type: f.tipo || 'application/octet-stream' }); }
+// ---------- sessão: chave aleatória criada pelo servidor no login, enviada em cada chamada ----------
+// (não depende de conta Google; fica na aba enquanto ela estiver aberta. "Manter-me conectado" guarda outra chave, de 30 dias.)
+let sessaoMem = '';
+function lerSessao() { try { return sessionStorage.getItem('cc_sessao') || sessaoMem; } catch (_) { return sessaoMem; } }
+function definirSessao(t) { sessaoMem = t || ''; try { if (t) sessionStorage.setItem('cc_sessao', t); else sessionStorage.removeItem('cc_sessao'); } catch (_) {} }
+// "manter-me conectado": guardado em dois lugares (armazenamento local + cookie), porque alguns navegadores de celular
+// apagam um deles. A chave vale 30 dias e se renova a cada uso.
+function lerCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (_) { return ''; } }
+function gravarCookie(n, v, dias) { try { document.cookie = n + '=' + encodeURIComponent(v) + '; max-age=' + (v ? dias * 86400 : 0) + '; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); } catch (_) {} }
+function lerManter() { let t = ''; try { t = localStorage.getItem('cc_manter_conectado') || ''; } catch (_) {} return t || lerCookie('cc_manter'); }
+function definirManter(t) { try { if (t) localStorage.setItem('cc_manter_conectado', t); else localStorage.removeItem('cc_manter_conectado'); } catch (_) {} gravarCookie('cc_manter', t || '', 30); }
+let retomando = null;
+/** Sessão expirou mas a pessoa marcou "manter-me conectado": abre outra sessão sem pedir a senha. */
+function retomarSilencioso() {
+  const tk = lerManter(); if (!tk) return Promise.resolve(false);
+  if (!retomando) retomando = rpc({ m: 'POST', u: '/api/auth/retomar', b: { token: tk } }).then(r => {
+    if (r && r.s === 200 && r.d && r.d.sessao) { definirSessao(r.d.sessao); definirManter(tk); if (r.d.perfil) estado.perfil = r.d.perfil; return true; }
+    if (r && r.s === 401) definirManter(''); return false;
+  }).catch(() => false).finally(() => { setTimeout(() => { retomando = null; }, 0); });
+  return retomando;
+}
+// ---------- proteção contra clique duplo ----------
+// 1) o mesmo botão não aceita um 2º clique em menos de 0,7 s; 2) enquanto o servidor grava, o botão clicado fica
+// desativado com "Processando…" e uma etiqueta "Processando…" aparece no topo; 3) o mesmo pedido de gravação
+// (mesmo endereço e mesmos dados) não é enviado duas vezes ao mesmo tempo: o 2º espera o 1º.
+let ultimoClique = { el: null, t: 0 };
+const SEM_TRAVA = '.seletor-mes button, [data-sem-trava]'; // setas do mês: clicar várias vezes seguidas é normal
+document.addEventListener('click', ev => {
+  const el = ev.target && ev.target.closest ? ev.target.closest('button, a.btn, input[type=checkbox], input[type=radio]') : null; if (!el) return;
+  const agora = Date.now(), repetido = el === ultimoClique.el && agora - ultimoClique.t < 700 && el.tagName !== 'INPUT' && !el.matches(SEM_TRAVA);
+  if (el.getAttribute('aria-busy') === 'true' || repetido) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
+  ultimoClique = { el, t: agora };
+}, true);
+function giro() { const s = document.createElement('span'); s.className = 'giro'; s.setAttribute('aria-hidden', 'true'); return s; }
+const ocupados = new Map();
+/** Deixa o elemento clicado "processando" (desativado, com animação) até a gravação terminar. Devolve a função que libera. */
+function ocupar(el) {
+  if (!el || !el.isConnected || el.matches(SEM_TRAVA)) return () => {};
+  let o = ocupados.get(el);
+  if (!o) {
+    o = { n: 0, disabled: el.disabled, filhos: null, rotulo: el.closest('label') }; ocupados.set(el, o);
+    el.setAttribute('aria-busy', 'true'); el.classList.add('processando'); if (o.rotulo) o.rotulo.classList.add('processando');
+    if (el.tagName === 'BUTTON' || el.tagName === 'A') {
+      o.filhos = Array.from(el.childNodes); o.minW = el.style.minWidth; el.style.minWidth = el.offsetWidth + 'px';
+      const soIcone = el.textContent.trim().length < 3; el.replaceChildren(giro(), ...(soIcone ? [] : [document.createTextNode('Processando…')]));
+    }
+    if ('disabled' in el) el.disabled = true;
+  }
+  o.n++;
+  return () => {
+    if (--o.n > 0) return; ocupados.delete(el);
+    el.removeAttribute('aria-busy'); el.classList.remove('processando'); if (o.rotulo) o.rotulo.classList.remove('processando');
+    if (o.filhos) { el.replaceChildren(...o.filhos); el.style.minWidth = o.minW; }
+    if ('disabled' in el) el.disabled = o.disabled;
+  };
+}
+let gravando = 0, indicador = null, atrasoIndicador = null;
+function mostrarIndicador(mais) {
+  gravando += mais; clearTimeout(atrasoIndicador);
+  if (gravando > 0) atrasoIndicador = setTimeout(() => { // só aparece se demorar mais que 0,25 s
+    if (!indicador) { indicador = document.createElement('div'); indicador.className = 'indicador-processando'; indicador.setAttribute('role', 'status'); indicador.append(giro(), document.createTextNode('Processando…')); }
+    if (!indicador.isConnected) document.body.append(indicador);
+  }, 250);
+  else if (indicador) indicador.remove();
+}
+const emAndamento = new Map();
+function api(metodo, url, corpo, opcoes = {}) {
+  if (metodo === 'GET') return apiBase(metodo, url, corpo, opcoes);
+  const chave = metodo + ' ' + url + ' ' + JSON.stringify(corpo === undefined ? null : corpo) + ' ' + (opcoes.raw ? opcoes.raw.length + ':' + opcoes.raw.slice(0, 64) : '');
+  if (emAndamento.has(chave)) return emAndamento.get(chave); // clique duplo que escapou: não grava duas vezes
+  const recente = Date.now() - ultimoClique.t < 3000 ? ultimoClique.el : null, liberar = ocupar(recente); mostrarIndicador(1);
+  const p = apiBase(metodo, url, corpo, opcoes).finally(() => { emAndamento.delete(chave); liberar(); mostrarIndicador(-1); });
+  emAndamento.set(chave, p); return p;
+}
+async function apiBase(metodo, url, corpo, opcoes = {}) {
+  const req = { m: metodo, u: url, t: lerSessao() }; if (corpo !== undefined) req.b = corpo; if (opcoes.raw) req.raw = opcoes.raw;
+  const r = await rpc(req);
+  if (!r || typeof r.s !== 'number') throw new ErroApi('Resposta inesperada do servidor.', 500);
+  if (r.s === 401 && !opcoes.jaRetomou && !/^\/api\/auth\//.test(url) && await retomarSilencioso()) return apiBase(metodo, url, corpo, Object.assign({}, opcoes, { jaRetomou: true }));
+  if (r.s >= 400) { if (r.s === 401 && !opcoes.semRedirecionar && estado.perfil) { estado.perfil = null; definirSessao(''); aoExpirar(); } throw new ErroApi((r.d && r.d.erro) || 'Erro inesperado.', r.s, r.d); }
+  if (r.d && r.d.sessao) definirSessao(r.d.sessao);
+  return opcoes.bruto ? r : r.d;
+}
+const GET = (u, o) => api('GET', u, undefined, o);
+const POST = (u, b, o) => api('POST', u, b === undefined ? {} : b, o);
+/** Lê um arquivo do computador/celular como base64 (para enviar o PDF da fatura). */
+const lerArquivoBase64 = arq => new Promise((ok, falha) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => falha(new ErroApi('Não foi possível ler o arquivo.', 0)); fr.readAsDataURL(arq); });
+const PUT = (u, b) => api('PUT', u, b);
+const DEL = u => api('DELETE', u, {});
+async function baixar(url, nomePadrao) {
+  const r = await api('GET', url, undefined, { bruto: true }); if (!r.f) throw new ErroApi('O servidor não devolveu o arquivo.', 500);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blobDe(r.f)); a.download = r.f.nome || nomePadrao; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function carregarDominios(forcar) { if (!estado.dominios || forcar) estado.dominios = await GET('/api/dominios'); return estado.dominios; }
+return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
+})();
+</script>
+<script>/* ui */
+const __m_ui = (() => {
+const { h, ico, limpar, rotuloMes, somarMeses, hoje } = __m_util;
+const { estado } = __m_api;
+function toast(msg, erro) { const t = h('div', { class: 'toast' + (erro ? ' erro' : ''), role: erro ? 'alert' : 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => t.remove(), erro ? 7000 : 3800); }
+
+/** Janela modal. corpo: Node. botoes: [{texto, classe, onclick(fechar)}]. Devolve {fechar, el}. */
+function modal({ titulo, corpo, botoes = [], larga = false, aoFechar }) {
+  const anterior = document.activeElement;
+  const fundo = h('div', { class: 'modal-fundo', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo });
+  const fechar = () => { fundo.remove(); document.removeEventListener('keydown', esc); if (anterior && anterior.focus) anterior.focus(); if (aoFechar) aoFechar(); };
+  // janela com formulário: clique fora NÃO fecha; Esc ou "X" com algo preenchido pede confirmação antes de descartar
+  const formulario = !!(corpo && corpo.querySelector && corpo.querySelector('input:not([type=checkbox]):not([type=radio]),textarea,select'));
+  let sujo = false;
+  const fecharPedindo = async () => { if (formulario && sujo && !(await confirmar('Descartar as informações?', 'O que foi preenchido nesta janela ainda não foi salvo e será perdido.', 'Descartar', true))) return; fechar(); };
+  const noTopo = () => { const t = document.querySelectorAll('.modal-fundo'); return t[t.length - 1] === fundo; };
+  const esc = e => { if (e.key === 'Escape' && noTopo()) { e.stopPropagation(); fecharPedindo(); } };
+  document.addEventListener('keydown', esc);
+  // botões da janela: enquanto a ação (ex.: Salvar) não termina, um novo clique no mesmo botão é ignorado
+  const rodape = botoes.length ? h('footer', {}, botoes.map(b => h('button', { class: 'btn ' + (b.classe || ''), type: 'button', onclick: ev => {
+    const btn = ev.currentTarget; if (btn.dataset.rodando) return;
+    const r = b.onclick(fechar, ev); if (r && typeof r.then === 'function') { btn.dataset.rodando = '1'; r.then(() => {}, () => {}).then(() => { delete btn.dataset.rodando; }); }
+  } }, b.texto))) : null;
+  fundo.append(h('div', { class: 'modal' + (larga ? ' larga' : '') }, h('header', {}, h('h2', {}, titulo), h('button', { class: 'btn sec mini', type: 'button', 'aria-label': 'Fechar', onclick: fecharPedindo }, ico('x'))), h('div', { class: 'corpo' }, corpo), rodape));
+  fundo.addEventListener('input', () => { sujo = true; }); fundo.addEventListener('change', () => { sujo = true; });
+  const aberto = Date.now();
+  fundo.addEventListener('mousedown', e => {
+    if (e.target !== fundo) return;
+    if (Date.now() - aberto < 600) return; // 2º clique de um clique duplo que abriu esta janela: não fecha
+    if (!formulario) return fechar();
+    const m = fundo.querySelector('.modal'); m.classList.remove('balanca'); void m.offsetWidth; m.classList.add('balanca');
+  });
+  document.body.append(fundo); const foco = fundo.querySelector('.corpo input:not([type=hidden]):not([type=checkbox]):not([type=file]),.corpo select,.corpo textarea') || fundo.querySelector('footer .btn');
+  if (foco) setTimeout(() => { if (!fundo.contains(document.activeElement)) foco.focus(); }, 30); // não rouba o foco de quem já começou a digitar
+  return { fechar, el: fundo };
+}
+function confirmar(titulo, texto, rotulo = 'Confirmar', perigo = false) {
+  return new Promise(res => { let feito = false; const fim = v => { if (!feito) { feito = true; res(v); } };
+    modal({ titulo, corpo: h('p', {}, texto), aoFechar: () => fim(false), botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: f => { fim(false); f(); } }, { texto: rotulo, classe: perigo ? 'perigo' : '', onclick: f => { fim(true); f(); } }] }); });
+}
+const campo = (rotulo, input, { obrig, dica, classe } = {}) => h('div', { class: classe || '' }, h('label', {}, rotulo, obrig ? h('span', { class: 'obr' }, ' *') : null), input, dica ? (dica instanceof Node ? dica : h('div', { class: 'dica' }, dica)) : null);
+function select(opcoes, valor, attrs = {}, vazio = '— selecione —') {
+  const s = h('select', attrs, vazio !== null ? h('option', { value: '' }, vazio) : null, opcoes.map(o => h('option', { value: o.value, selected: String(o.value) === String(valor ?? '') }, o.label)));
+  if (valor != null && valor !== '') s.value = valor; return s;
+}
+/** Botões de escolha única. opcoes: [{value, label, dica}]. Devolve { el, valor(), definir(v) }. */
+function segmentos(opcoes, valor, aoMudar) {
+  let atual = valor; const el = h('div', { class: 'segmentos', role: 'radiogroup' });
+  const desenhar = () => { limpar(el); opcoes.forEach(o => el.append(h('button', { type: 'button', role: 'radio', 'aria-checked': String(o.value === atual), class: o.value === atual ? 'ativo' : '', onclick: () => { atual = o.value; desenhar(); el.dispatchEvent(new Event('change', { bubbles: true })); if (aoMudar) aoMudar(atual); } }, o.label, o.dica ? h('small', {}, o.dica) : null))); };
+  desenhar(); return { el, valor: () => atual, definir: v => { atual = v; desenhar(); } };
+}
+/**
+ * Tabela. No celular (CSS .cm) cada linha vira um cartão: a coluna principal (Descrição, Gasto, Compra…) vira o título
+ * e as outras aparecem como "rótulo: valor", sem rolagem lateral.
+ */
+const PRINCIPAIS = ['Descrição', 'Gasto', 'Compra', 'Mês', 'Ação', 'Ganho'];
+function tabela(colunas, linhas, { vazio = 'Nada a mostrar.', rodape, aoClicar } = {}) {
+  if (!linhas.length) return h('div', { class: 'vazio' }, vazio);
+  const ip = Math.max(0, colunas.findIndex(c => c.principal || PRINCIPAIS.includes(c.titulo)));
+  const cls = (c, i) => (c.num ? 'num ' : '') + (i === ip ? 'principal ' : '') + (!c.titulo ? 'sem-rot ' : '') + (c.classe || '');
+  return h('div', { class: 'tabela-wrap cm' }, h('table', { class: 't' },
+    h('thead', {}, h('tr', {}, colunas.map(c => h('th', { class: c.num ? 'num' : '' }, c.titulo)))),
+    h('tbody', {}, linhas.map(l => h('tr', { class: aoClicar ? 'clicavel' : '', onclick: aoClicar ? ev => { if (ev.target.closest('button,input,label,select,a')) return; aoClicar(l); } : null }, colunas.map((c, i) => h('td', { class: cls(c, i), 'data-r': c.titulo || '' }, c.f ? c.f(l) : l[c.k] ?? ''))))),
+    rodape ? h('tfoot', {}, h('tr', {}, rodape.map((t, i) => h('td', { class: (colunas[i] && colunas[i].num ? 'num' : '') + (t === '' || t == null ? ' vazio-cel' : '') }, t)))) : null));
+}
+function cabPagina(titulo, texto, direita) { return h('div', { class: 'cab-pagina' }, h('div', {}, h('h1', {}, titulo), texto ? h('p', {}, texto) : null), direita || null); }
+
+/** Seletor de mês ‹ Novembro de 2026 › (lembra o mês escolhido entre as telas). */
+function seletorMes(aoMudar, inicial) {
+  let mes = inicial || estado.mes || hoje().slice(0, 7);
+  const rot = h('span'), entrada = h('input', { type: 'month', value: mes, 'aria-label': 'Escolher mês', onchange: e => { if (/^\d{4}-\d{2}$/.test(e.target.value)) ir(e.target.value); } });
+  const el = h('div', { class: 'seletor-mes' },
+    h('button', { type: 'button', 'aria-label': 'Mês anterior', title: 'Mês anterior', onclick: () => ir(somarMeses(mes, -1)) }, ico('esq')),
+    h('label', { class: 'rot', style: { margin: 0, color: 'inherit' } }, rot, entrada),
+    h('button', { type: 'button', 'aria-label': 'Próximo mês', title: 'Próximo mês', onclick: () => ir(somarMeses(mes, 1)) }, ico('dir')),
+    h('button', { type: 'button', class: 'hoje', title: 'Voltar ao mês atual', onclick: () => ir(hoje().slice(0, 7)) }, 'Hoje'));
+  const pintar = () => { rot.textContent = rotuloMes(mes); entrada.value = mes; };
+  function ir(m) { mes = m; estado.mes = m; pintar(); aoMudar(m); }
+  pintar(); estado.mes = mes; return { el, valor: () => mes };
+}
+function chipDivisao(div, rotulo) { return h('span', { class: 'chip ' + (div || '') }, rotulo || div); }
+const FORMAS = { PIX: 'Pix', DEBITO: 'Débito', DINHEIRO: 'Dinheiro' };
+function chipForma(f) { return h('span', { class: 'chip ' + f }, FORMAS[f] || f); }
+/** Opções de divisão do ponto de vista de quem paga (o usuário logado). */
+function opcoesDivisao(perfil) {
+  const outro = perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)';
+  return [{ value: 'DIVIDIDO', label: 'Dividido', dica: 'meio a meio' }, { value: 'INDIVIDUAL', label: 'Só meu', dica: 'não divide' }, { value: 'OUTRO', label: 'Todo de ' + outro, dica: outro + ' deve o valor inteiro' }];
+}
+/** Campo de categoria com sugestões (datalist). */
+function campoCategoria(dom, valor) {
+  const id = 'cats-' + Math.random().toString(36).slice(2, 8);
+  return h('div', {}, h('input', { type: 'text', list: id, value: valor || '', maxlength: 40, placeholder: 'ex.: Mercado' }), h('datalist', { id }, dom.categorias.map(c => h('option', { value: c }))));
+}
+return { toast, modal, confirmar, campo, select, segmentos, tabela, cabPagina, seletorMes, chipDivisao, chipForma, FORMAS, opcoesDivisao, campoCategoria };
+})();
+</script>

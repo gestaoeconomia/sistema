@@ -1,0 +1,91 @@
+<script>/* pages/fixos */
+const __m_pages_fixos = (() => {
+const { h, limpar, brl, fmtData, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
+const { GET, POST, PUT, DEL, estado, carregarDominios } = __m_api;
+const { cabPagina, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria } = __m_ui;
+
+/**
+ * Cadastrar / alterar gasto fixo. Na alteração de um gasto que já tem meses passados, pergunta "a partir de qual mês"
+ * — os meses anteriores ficam como estavam. opcoes.mes = mês que a pessoa está vendo (sugestão para "a partir de").
+ */
+async function formRecorrente(perfil, rc, aoSalvar, opcoes = {}) {
+  const dom = await carregarDominios(), novo = !rc || !rc.id, mesAtual = hoje().slice(0, 7);
+  const meusCartoes = dom.cartoes.filter(c => c.titular === perfil.email && (c.ativo === 1 || (rc && c.id === rc.cartao_id)));
+  rc = rc || { tipo: meusCartoes.length ? 'CARTAO' : 'PIX', forma: 'PIX', divisao: 'DIVIDIDO', dia: Number(hoje().slice(8, 10)), inicio: opcoes.mes || estado.mes || mesAtual, cartao_id: meusCartoes[0] && meusCartoes[0].id };
+  const tipo = segmentos([{ value: 'CARTAO', label: 'Cartão de crédito', dica: 'assinaturas, mensalidades' }, { value: 'PIX', label: 'Pix / débito / dinheiro', dica: 'aluguel, condomínio, contas' }], rc.tipo, () => trocarTipo());
+  const cartao = select(meusCartoes.map(c => ({ value: c.id, label: c.rotulo })), rc.cartao_id, {}, meusCartoes.length ? null : '— cadastre um cartão primeiro —');
+  const forma = segmentos([{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }], rc.forma || 'PIX');
+  const desc = h('input', { type: 'text', value: rc.descricao || '', maxlength: 120, placeholder: 'ex.: Netflix, Aluguel, Internet' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(rc.valor), placeholder: '0,00' });
+  const dia = select(Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: 'Dia ' + (i + 1) })), rc.dia, {}, null);
+  const inicio = h('input', { type: 'month', value: rc.inicio || mesAtual }), fim = h('input', { type: 'month', value: rc.fim || '' });
+  const divisao = segmentos(opcoesDivisao(perfil), rc.divisao || 'DIVIDIDO');
+  const cat = campoCategoria(dom, rc.categoria), obs = h('input', { type: 'text', value: rc.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const rotInicio = h('span'), dicaInicio = h('div', { class: 'dica' });
+  const boxCartao = campo('Cartão', cartao, { obrig: true }), boxForma = campo('Forma de pagamento', forma.el, { obrig: true });
+  function trocarTipo() {
+    const c = tipo.valor() === 'CARTAO';
+    boxCartao.classList.toggle('oculto', !c); boxForma.classList.toggle('oculto', c);
+    rotInicio.textContent = c ? '1ª fatura com a cobrança' : 'Primeiro mês';
+    dicaInicio.textContent = c ? 'Mês de vencimento da fatura em que a cobrança aparece pela primeira vez.' : 'Mês do primeiro pagamento.';
+  }
+  trocarTipo();
+  // alteração de gasto com meses passados: escolher a partir de quando vale a mudança
+  const temPassado = !novo && rc.inicio < (opcoes.mes || mesAtual);
+  const aPartir = h('input', { type: 'month', value: opcoes.mes && opcoes.mes > rc.inicio ? opcoes.mes : (mesAtual > rc.inicio ? mesAtual : ''), min: !novo ? somarMeses(rc.inicio, 1) : '' });
+  const blocoAPartir = temPassado ? h('div', { class: 'aviso info' }, h('b', {}, 'A mudança vale a partir de: '), h('div', { style: { maxWidth: '220px', marginTop: '6px' } }, aPartir),
+    h('div', { class: 'dica', style: { marginTop: '4px' } }, `Os meses anteriores (desde ${rotuloMes(rc.inicio)}) continuam com os valores de antes. Deixe vazio para corrigir todos os meses.`)) : null;
+  modal({ titulo: novo ? 'Novo gasto fixo' : 'Editar gasto fixo', corpo: h('div', {},
+    h('p', { class: 'dica' }, 'Cadastre uma vez: o app coloca o gasto em todos os meses, sem parcelar, até você encerrar.'),
+    campo('Onde é cobrado', tipo.el, { obrig: true }), boxCartao, boxForma,
+    h('div', { class: 'form-grade' }, campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Valor por mês (R$)', valor, { obrig: true }), campo('Dia da cobrança', dia),
+      h('div', {}, h('label', {}, rotInicio, h('span', { class: 'obr' }, ' *')), inicio, dicaInicio), campo('Último mês (opcional)', fim, { dica: 'Vazio = continua até você encerrar.' }), campo('Categoria', cat)),
+    campo('Como dividir', divisao.el, { obrig: true }), campo('Observação', obs), blocoAPartir, msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor por mês.'; return; }
+      const corpo = { tipo: tipo.valor(), cartao_id: cartao.value, forma: forma.valor(), descricao: desc.value, valor: v, dia: Number(dia.value), inicio: inicio.value, fim: fim.value, divisao: divisao.valor(), categoria: cat.querySelector('input').value, obs: obs.value };
+      if (temPassado && aPartir.value) corpo.a_partir_de = aPartir.value;
+      try { novo ? await POST('/api/recorrentes', corpo) : await PUT('/api/recorrentes/' + rc.id, corpo); c(); toast(novo ? 'Gasto fixo cadastrado.' : 'Gasto fixo atualizado.'); carregarDominios(true); aoSalvar && aoSalvar(); }
+      catch (e) { msg.textContent = e.message; } } }] });
+}
+async function abrirRecorrente(id, perfil, aoSalvar, mes) { try { formRecorrente(perfil, await GET('/api/recorrentes/' + id + (mes ? '?mes=' + mes : '')), aoSalvar, { mes }); } catch (e) { toast(e.message, true); } }
+/** Muda só a divisão de um gasto fixo a partir do mês (caixa "Dividir" da fatura / pix). */
+async function mudarDivisao(id, divisao, mes) { return PUT('/api/recorrentes/' + id, { divisao, a_partir_de: mes }); }
+function encerrar(rc, aoSalvar) {
+  const ult = h('input', { type: 'month', value: hoje().slice(0, 7) < rc.inicio ? rc.inicio : hoje().slice(0, 7), min: rc.inicio }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Encerrar "' + rc.descricao + '"', corpo: h('div', {}, h('p', {}, 'O gasto continua nos meses até o último mês escolhido e não aparece mais depois dele. O histórico fica guardado.'), campo('Último mês com a cobrança', ult, { obrig: true }), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Encerrar', classe: 'perigo', onclick: async c => { msg.textContent = ''; try { await PUT(`/api/recorrentes/${rc.id}/encerrar`, { ultimo_mes: ult.value }); c(); toast('Gasto fixo encerrado.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+
+async function render(alvo, { perfil }) {
+  let verEncerrados = false;
+  const resumo = h('div', {}), lista = h('div', {}), recarregar = () => carregar();
+  alvo.append(cabPagina('Gastos fixos', 'Assinaturas e contas que se repetem todo mês com o mesmo valor. Cadastre uma vez: elas entram sozinhas nas faturas, nos pix/débito e no acerto de cada mês.',
+    h('button', { class: 'btn', type: 'button', onclick: () => formRecorrente(perfil, null, recarregar) }, ico('mais'), 'Novo gasto fixo')), resumo, lista);
+  async function carregar() {
+    limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/recorrentes?mes=' + hoje().slice(0, 7));
+    limpar(resumo).append(h('div', { class: 'kpis' }, r.totais.slice().sort((a, b) => (b.email === perfil.email) - (a.email === perfil.email)).map((t, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') },
+      h('div', { class: 'r' }, t.email === perfil.email ? 'Seus gastos fixos por mês' : 'Fixos de ' + primeiroNome(t.nome) + ' divididos com você'), h('div', { class: 'v' }, brl(t.total == null ? t.compartilhado : t.total)),
+      h('div', { class: 'd' }, t.total == null ? `você deve ${brl(t.receber)} por mês desses gastos` : `o outro deve ${brl(t.receber)} por mês desses gastos`)))));
+    const ativos = r.itens.filter(x => x.situacao === 'ativo' || x.situacao === 'futuro'), encerrados = r.itens.filter(x => x.situacao === 'encerrado' || x.situacao === 'alterado'), mostrar = verEncerrados ? r.itens : ativos;
+    const cols = [{ titulo: 'Gasto', f: x => h('div', {}, x.descricao, h('div', { class: 'sec-txt' }, [x.categoria, x.obs].filter(Boolean).join(' · '))) },
+      { titulo: 'Onde', f: x => h('div', {}, x.onde, h('div', { class: 'sec-txt' }, (x.dono === perfil.email ? 'você' : primeiroNome(x.dono_nome)) + ' · dia ' + x.dia)) },
+      { titulo: 'Divisão', f: x => chipDivisao(x.divisao, x.divisao_rotulo) }, { titulo: 'Por mês', num: true, f: x => brl(x.valor) },
+      { titulo: 'Período', f: x => h('div', {}, (x.situacao === 'alterado' ? rotuloMesCurto(x.inicio) : rotuloMesCurto(x.inicio_original || x.inicio)) + ' → ' + (x.fim ? rotuloMesCurto(x.fim) : 'sem fim'),
+          x.situacao !== 'alterado' && x.inicio_original && x.inicio_original !== x.inicio ? h('div', { class: 'sec-txt' }, 'valor/divisão atual desde ' + rotuloMesCurto(x.inicio)) : null) },
+      { titulo: 'Situação', f: x => h('span', { class: 'chip ' + (x.situacao === 'ativo' ? 'paga' : x.situacao === 'futuro' ? 'DIVIDIDO' : '') }, x.situacao === 'ativo' ? 'ativo' : x.situacao === 'futuro' ? 'começa ' + rotuloMesCurto(x.inicio_original || x.inicio) : x.situacao === 'alterado' ? 'valor anterior' : 'encerrado') },
+      { titulo: '', f: x => x.dono === perfil.email ? h('div', { class: 'acoes-linha' },
+        h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formRecorrente(perfil, x, recarregar) }, ico('editar')),
+        x.situacao === 'ativo' || x.situacao === 'futuro' ? h('button', { class: 'btn sec mini', type: 'button', title: 'Encerrar', onclick: () => encerrar(x, recarregar) }, 'Encerrar') : null,
+        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir de todos os meses', onclick: async () => { if (!(await confirmar('Excluir gasto fixo?', `Excluir "${x.descricao}" de TODOS os meses, inclusive os passados? Para só parar de cobrar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { await DEL('/api/recorrentes/' + x.id); toast('Gasto fixo excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
+    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Gastos fixos'), h('p', { class: 'sub' }, `${ativos.length} gasto(s) fixo(s)` + (encerrados.length ? ` · ${encerrados.length} no histórico (encerrados ou valores anteriores)` : ''))),
+        encerrados.length ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => { verEncerrados = !verEncerrados; carregar(); } }, verEncerrados ? 'Esconder histórico' : 'Mostrar histórico') : null),
+      tabela(cols, mostrar, { vazio: 'Nenhum gasto fixo ainda. Cadastre assinaturas (Netflix, Spotify, academia) e contas fixas (aluguel, condomínio, internet).', aoClicar: x => x.dono === perfil.email && formRecorrente(perfil, x, recarregar) }),
+      h('p', { class: 'dica', style: { marginTop: '10px' } }, 'Mudou o valor? Edite e escolha "a partir de qual mês" — os meses anteriores não mudam. Cancelou? Use "Encerrar".')));
+  }
+  await carregar();
+}
+return { render, formRecorrente, abrirRecorrente, mudarDivisao, encerrar };
+})();
+</script>

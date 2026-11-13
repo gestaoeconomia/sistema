@@ -1,0 +1,66 @@
+<script>/* pages/ganhos */
+const __m_pages_ganhos = (() => {
+const { h, limpar, brl, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
+const { GET, POST, PUT, DEL, estado } = __m_api;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos } = __m_ui;
+
+function formGanho(perfil, g, aoSalvar, mesVisto) {
+  const novo = !g || !g.id, mesAtual = hoje().slice(0, 7); g = g || { tipo: 'FIXA', dia: 5, inicio: mesVisto || mesAtual };
+  const tipo = segmentos([{ value: 'FIXA', label: 'Todo mês', dica: 'salário, pró-labore, aluguel recebido' }, { value: 'AVULSA', label: 'Só um mês', dica: '13º, férias, freela, bônus' }], g.tipo, () => ajustar());
+  const desc = h('input', { type: 'text', value: g.descricao || '', maxlength: 80, placeholder: 'ex.: Salário' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(g.valor), placeholder: '0,00' });
+  const dia = select(Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: 'Dia ' + (i + 1) })), g.dia || 5, {}, null);
+  const inicio = h('input', { type: 'month', value: g.inicio || mesAtual }), fim = h('input', { type: 'month', value: g.tipo === 'FIXA' ? (g.fim || '') : '' });
+  const obs = h('input', { type: 'text', value: g.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const rotIni = h('span'), boxFim = campo('Último mês (opcional)', fim, { dica: 'Vazio = continua até você encerrar.' });
+  function ajustar() { const fixa = tipo.valor() === 'FIXA'; rotIni.textContent = fixa ? 'Recebe a partir de' : 'Mês em que recebeu'; boxFim.classList.toggle('oculto', !fixa); }
+  ajustar();
+  const temPassado = !novo && g.tipo === 'FIXA' && g.inicio < (mesVisto || mesAtual);
+  const aPartir = h('input', { type: 'month', value: (mesVisto || mesAtual) > g.inicio ? (mesVisto || mesAtual) : '' });
+  modal({ titulo: novo ? 'Novo ganho' : 'Editar ganho', corpo: h('div', {},
+    h('p', { class: 'dica' }, 'Valor líquido, que cai na conta. Cada um cadastra os próprios ganhos; os dois veem o total do casal.'),
+    campo('Tipo', tipo.el), h('div', { class: 'form-grade' }, campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Valor (R$)', valor, { obrig: true }), campo('Dia em que cai', dia),
+      h('div', {}, h('label', {}, rotIni, h('span', { class: 'obr' }, ' *')), inicio), boxFim), campo('Observação', obs),
+    temPassado ? h('div', { class: 'aviso info' }, h('b', {}, 'Mudou o valor (aumento, reajuste)? Vale a partir de: '), h('div', { style: { maxWidth: '220px', marginTop: '6px' } }, aPartir),
+      h('div', { class: 'dica', style: { marginTop: '4px' } }, `Os meses anteriores (desde ${rotuloMes(g.inicio)}) continuam com o valor antigo. Deixe vazio para corrigir todos.`)) : null, msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+      msg.textContent = ''; const v = lerValor(valor.value); if (isNaN(v) || v <= 0) { msg.textContent = 'Informe o valor.'; return; }
+      const corpo = { tipo: tipo.valor(), descricao: desc.value, valor: v, dia: Number(dia.value), inicio: inicio.value, fim: tipo.valor() === 'FIXA' ? fim.value : '', obs: obs.value };
+      if (temPassado && aPartir.value) corpo.a_partir_de = aPartir.value;
+      try { novo ? await POST('/api/rendas', corpo) : await PUT('/api/rendas/' + g.id, corpo); c(); toast(novo ? 'Ganho cadastrado.' : 'Ganho atualizado.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+function encerrar(g, aoSalvar) {
+  const ult = h('input', { type: 'month', value: hoje().slice(0, 7) < g.inicio ? g.inicio : hoje().slice(0, 7), min: g.inicio }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Encerrar "' + g.descricao + '"', corpo: h('div', {}, h('p', {}, 'O ganho conta até o último mês escolhido. Use quando mudar de emprego ou o pagamento acabar.'), campo('Último mês', ult, { obrig: true }), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Encerrar', classe: 'perigo', onclick: async c => { try { await PUT(`/api/rendas/${g.id}/encerrar`, { ultimo_mes: ult.value }); c(); toast('Ganho encerrado.'); aoSalvar && aoSalvar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+
+async function render(alvo, { perfil }) {
+  let mesAtual = null; const resumo = h('div', {}), lista = h('div', {});
+  const sel = seletorMes(m => carregar(m)), recarregar = () => carregar(sel.valor());
+  alvo.append(cabPagina('Ganhos', 'O que entra para cada um. É a base do "disponível para gastar" do Início e do quanto dá para guardar nas metas.',
+    h('div', { class: 'acoes-linha' }, sel.el, h('button', { class: 'btn', type: 'button', onclick: () => formGanho(perfil, null, recarregar, sel.valor()) }, ico('mais'), 'Novo ganho'))), resumo, lista);
+  async function carregar(mes) {
+    mesAtual = mes; limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/rendas?mes=' + mes); if (mesAtual !== mes) return;
+    limpar(resumo).append(h('div', { class: 'kpis' }, h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Ganhos do casal em ' + r.rotulo), h('div', { class: 'v' }, brl(r.total))),
+      r.pessoas.slice().sort((a, b) => (a.email === perfil.email ? -1 : 0) - (b.email === perfil.email ? -1 : 0)).map((p, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') }, h('div', { class: 'r' }, p.email === perfil.email ? 'Seus ganhos' : 'Ganhos de ' + primeiroNome(p.nome)), h('div', { class: 'v' }, brl(p.total))))));
+    const ativos = r.itens.filter(x => x.situacao !== 'encerrado'), antigos = r.itens.filter(x => x.situacao === 'encerrado');
+    const cols = [{ titulo: 'Ganho', f: x => h('div', {}, x.descricao, x.obs ? h('div', { class: 'sec-txt' }, x.obs) : null) },
+      { titulo: 'De quem', f: x => x.pessoa === perfil.email ? 'Você' : primeiroNome(x.pessoa_nome) },
+      { titulo: 'Tipo', f: x => h('span', { class: 'chip ' + (x.tipo === 'FIXA' ? 'fixo' : 'DIVIDIDO') }, x.tipo === 'FIXA' ? 'todo mês' : 'só ' + rotuloMesCurto(x.inicio)) },
+      { titulo: 'Valor', num: true, f: x => brl(x.valor) },
+      { titulo: 'Período', f: x => x.tipo === 'FIXA' ? rotuloMesCurto(x.inicio) + ' → ' + (x.fim ? rotuloMesCurto(x.fim) : 'sem fim') : rotuloMesCurto(x.inicio) },
+      { titulo: 'Neste mês', f: x => x.situacao === 'ativo' ? h('span', { class: 'chip paga' }, 'entra') : x.situacao === 'futuro' ? 'começa ' + rotuloMesCurto(x.inicio) : 'encerrado' },
+      { titulo: '', f: x => x.pessoa === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGanho(perfil, x, recarregar, mes) }, ico('editar')),
+        x.tipo === 'FIXA' && x.situacao !== 'encerrado' ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => encerrar(x, recarregar) }, 'Encerrar') : null,
+        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir ganho?', `Excluir "${x.descricao}" de todos os meses? Para parar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { await DEL('/api/rendas/' + x.id); toast('Ganho excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
+    limpar(lista).append(h('div', { class: 'painel' }, h('h2', {}, 'Ganhos cadastrados'), h('p', { class: 'sub' }, 'Salário e outros ganhos que se repetem: "Todo mês". Extras: "Só um mês".'),
+      tabela(cols, ativos, { vazio: 'Nenhum ganho cadastrado. Comece pelo salário de cada um.' }),
+      antigos.length ? h('details', { style: { marginTop: '12px' } }, h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, `Encerrados e valores anteriores (${antigos.length})`), h('div', { style: { marginTop: '8px' } }, tabela(cols, antigos))) : null));
+  }
+  await carregar(sel.valor());
+}
+return { render, formGanho };
+})();
+</script>

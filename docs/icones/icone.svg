@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16697A"/><stop offset=".55" stop-color="#0E4D5B"/><stop offset="1" stop-color="#06252D"/>
+    </linearGradient>
+    <radialGradient id="brilho" cx=".78" cy=".18" r=".7">
+      <stop offset="0" stop-color="#F28C38" stop-opacity=".55"/><stop offset="1" stop-color="#F28C38" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="casa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC48A"/><stop offset="1" stop-color="#F07F22"/>
+    </linearGradient>
+    <linearGradient id="vidro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset="1" stop-color="#fff" stop-opacity=".06"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#021418" flood-opacity=".45"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#fundo)"/>
+  <rect width="1024" height="1024" fill="url(#brilho)"/>
+  <!-- placa de vidro -->
+  <rect x="196" y="236" width="632" height="600" rx="140" fill="url(#vidro)" stroke="#fff" stroke-opacity=".35" stroke-width="4"/>
+  <!-- casa-cofrinho -->
+  <g filter="url(#sombra)">
+    <path d="M300 498 L512 318 L724 498 V732 a28 28 0 0 1 -28 28 H328 a28 28 0 0 1 -28 -28 Z" fill="none" stroke="url(#casa)" stroke-width="64" stroke-linejoin="round"/>
+    <rect x="452" y="420" width="120" height="40" rx="20" fill="url(#casa)"/>
+    <circle cx="512" cy="600" r="78" fill="url(#casa)"/>
+  </g>
+</svg>
