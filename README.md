@@ -11,10 +11,11 @@ build.mjs    gera a pasta docs/ a partir de Contas/
 
 ## 1. Atualizar o Apps Script
 
-1. No editor do Apps Script, substitua estes arquivos pelo conteúdo da pasta `Contas/`
-   (ou rode `clasp push` dentro dela):
-   `Estilo.html`, `JS_Inicio.html`, `00_Config.js`, `14_Instalar.js`.
-2. Execute `criarIcone()` uma vez (troca o ícone da aba do navegador pelo novo).
+1. No editor do Apps Script, substitua os arquivos pelo conteúdo da pasta `Contas/` (ou rode `clasp push` dentro dela).
+   Na V1.3 há 5 arquivos **novos** (crie com o mesmo nome): `01b_Icone.js`, `10_AcessoExterno.js`, `11_Conferencia.js`,
+   `12_Notificacoes.js` e o HTML `JS_Conferencia`. Veja a lista completa em `ALTERACOES_V1.3.md`.
+2. Rode `diagnostico()` uma vez no editor e aceite a autorização nova (a V1.3 confere o ícone da aba pela internet).
+   O ícone da aba é publicado sozinho na primeira abertura — não precisa mais rodar `criarIcone()`.
 3. **Implantar › Gerenciar implantações › ✏️ editar › Versão: Nova versão › Implantar.**
    Editar a implantação existente mantém o mesmo link.
 4. Copie o **URL do app da Web**, que termina em `/exec`.
@@ -39,9 +40,11 @@ build.mjs    gera a pasta docs/ a partir de Contas/
 
 1. Abra o link do site no **Safari**.
 2. Toque em **Compartilhar** (quadrado com a seta) › **Adicionar à Tela de Início** › **Adicionar**.
-3. O ícone da casa-cofrinho aparece na tela inicial. O app abre em tela cheia, sem a barra do Safari.
+3. O ícone do app (a casa com a seta subindo) aparece na tela inicial. O app abre em tela cheia, sem a barra do Safari.
 
 Na primeira vez, entre com e-mail e senha e deixe marcado "Manter-me conectado". O app da Tela de Início guarda a sessão separada da do Safari.
+
+Depois, em **Minha conta › Site do app**, toque em "Usar este endereço": os e-mails de aviso passam a abrir o site, e não o link do Apps Script.
 
 ## Atualizações futuras
 

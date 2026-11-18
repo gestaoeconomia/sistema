@@ -308,7 +308,7 @@ input[type=date]::-webkit-calendar-picker-indicator,input[type=month]::-webkit-c
   --papel:#F3F6F6;--tinta:#17242A;--tinta-2:#4D5D62;--tinta-3:#5F6F74;--linha:#DCE4E5;--linha-forte:#B9C9CC;
   --ambar:#A85410;--ambar-bg:#FDEBDD;--vermelho:#B53636;--vermelho-bg:#FBE5E5;--verde:#1C7A56;--verde-bg:#E1F2EA;
   --pessoa-a:#0E4D5B;--pessoa-b:#F28C38;
-  --fonte:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;--fonte-titulo:'Bricolage Grotesque','Figtree',system-ui,sans-serif;--r:16px;
+  --fonte:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;--fonte-titulo:'Plus Jakarta Sans','Figtree',system-ui,sans-serif;--r:16px;
 }
 :focus-visible{outline:3px solid #F2B37A;outline-offset:2px}
 .cab-pagina h1,.painel>h2,.titulo-painel h2,.destaque .frase,.kpi .v,.meta-mensal .v,.cab-acesso h2,.nav .marca b,.pessoa h3{font-family:var(--fonte-titulo);letter-spacing:-.02em}
@@ -517,4 +517,71 @@ input:focus,select:focus,textarea:focus{background:#fff;box-shadow:0 0 0 4px rgb
   .painel,.kpi,.pessoa,.meta,.seletor-mes,.modal,.topo,.abas-ios{background:rgba(255,255,255,.96)}.nav{background:#08303A}
 }
 @media print{.abas-ios,.veu-menu{display:none!important}body::before{display:none}}
+/* ---------- V1.2 (do SIG V6.11.3): carregamento entre as telas ---------- */
+.principal{position:relative}
+.conteudo.tc-oculto{opacity:0;pointer-events:none;min-height:62vh}
+.tc{position:absolute;left:0;right:0;min-height:62vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;z-index:5;opacity:0;transition:opacity .25s ease;pointer-events:none}
+.tc.vis{opacity:1}.tc.saindo{opacity:0;transition-duration:.18s}
+.tc .tc-ic{position:relative;width:96px;height:96px;display:grid;place-items:center;margin-bottom:18px}
+.tc .tc-tile{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(160deg,#14687A,#0E4D5B);color:#fff;box-shadow:0 10px 24px rgba(14,77,91,.28);animation:tcRespira 2s ease-in-out infinite}
+.tc .tc-tile svg.ico{width:30px;height:30px}
+.tc .tc-anel{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(242,140,56,.18);border-top-color:#F28C38;animation:tcGira 1.2s linear infinite}
+.tc h3{margin:0;font-size:19px;font-weight:800;color:var(--tinta)}
+.tc .tc-fr{margin:14px 0 0;max-width:470px;font-size:15.5px;line-height:1.5;font-style:italic;color:var(--tinta-2);min-height:48px;transition:opacity .3s}
+.tc .tc-fr.troca{opacity:0}
+.tc .tc-fr::before{content:'\201C';color:#F28C38;font-weight:800;margin-right:2px}.tc .tc-fr::after{content:'\201D';color:#F28C38;font-weight:800;margin-left:2px}
+.tc .tc-barra{margin-top:18px;width:200px;height:4px;border-radius:4px;background:rgba(14,77,91,.14);overflow:hidden;position:relative}
+.tc .tc-barra i{position:absolute;top:0;bottom:0;width:38%;border-radius:4px;background:linear-gradient(90deg,#F28C38,#0E4D5B);animation:tcBarra 1.4s ease-in-out infinite}
+@keyframes tcGira{to{transform:rotate(360deg)}}
+@keyframes tcRespira{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes tcBarra{0%{left:-38%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.tc .tc-tile,.tc .tc-barra i{animation:none}.tc .tc-anel{animation-duration:3s}}
+@media print{.tc{display:none!important}.conteudo.tc-oculto{opacity:1}}
+/* ---------- V1.2: menu recolhível, selos, sino de avisos e "arquivo pronto" ---------- */
+.recolher-nav{display:flex;align-items:center;gap:10px;background:none;border:0;border-top:1px solid #13414D;color:#9FBAC0;cursor:pointer;padding:10px 20px;font-size:13px;flex-shrink:0;text-align:left}
+.recolher-nav:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav a.item .rot{flex:1;min-width:0}
+.nav a.item .selo{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#F28C38;color:#08303A;font-size:11.5px;font-weight:800;display:inline-grid;place-items:center;line-height:1}
+@media(min-width:861px){
+  body.nav-mini .app{grid-template-columns:72px minmax(0,1fr)}
+  body.nav-mini .nav .marca{padding:16px 0;justify-content:center}body.nav-mini .nav .marca>div{display:none}
+  body.nav-mini .recolher-nav{justify-content:center;padding:10px 0}body.nav-mini .recolher-nav .rot{display:none}body.nav-mini .recolher-nav svg{transform:rotate(180deg)}
+  body.nav-mini .nav .grupo{font-size:0;padding:8px 0 2px;margin:0 16px;border-top:1px solid #13414D}
+  body.nav-mini .nav a.item{justify-content:center;margin:2px 10px;padding:10px 0;position:relative}
+  body.nav-mini .nav a.item .rot{display:none}
+  body.nav-mini .nav a.item .selo{position:absolute;top:2px;right:2px;min-width:16px;height:16px;font-size:10px;padding:0 4px}
+  body.nav-mini .nav .eu{justify-content:center;padding:12px 0}body.nav-mini .nav .eu>div:not(.avatar){display:none}
+}
+@media(max-width:860px){.recolher-nav{display:none}}
+.sino-caixa{position:relative}
+.btn.sino{position:relative}
+.sino-bolha{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--acento);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid #fff}
+.sino-bolha.alto{background:var(--vermelho)}
+.sino-lista{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(380px,calc(100vw - 24px));max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--linha);border-radius:14px;box-shadow:0 18px 40px rgba(8,48,58,.18);z-index:80}
+.sino-caixa.aberto .sino-lista{display:block}
+.sino-cab{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px 6px}
+.sino-item{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--linha);padding:10px 14px;cursor:pointer;color:var(--tinta)}
+.sino-item:hover{background:var(--acento-claro)}
+.sino-item b{display:block;font-weight:600}.sino-item .dica{display:block;margin:2px 0 0}
+.sino-ponto{width:9px;height:9px;border-radius:50%;background:#F28C38;margin-top:6px;flex-shrink:0}
+.sino-item.alto .sino-ponto{background:var(--vermelho)}
+@media(max-width:860px){.sino-lista{position:fixed;left:12px;right:12px;top:58px;width:auto}}
+.arq-pronto .arq-nome{font-weight:700;overflow-wrap:anywhere;margin-bottom:6px}
+.arq-pronto .acoes-linha{margin-top:12px}
+.sino-cab.sep{border-top:6px solid var(--papel)}
+.sino-bolha.novidade{background:#F28C38;color:#08303A}
+.sino-item.novidade .sino-ponto{background:var(--acento)}.sino-item.novidade.lida .sino-ponto{background:transparent;border:2px solid var(--linha-forte)}
+.sino-item.novidade.lida b{font-weight:500}
+.sino-quando{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:2px}
+@media print{.sino-caixa{display:none!important}}
+.conf-grupo{margin-bottom:16px}.conf-grupo .chip{vertical-align:2px}
+.conf-itens{display:grid;gap:0;margin-top:8px}
+.conf-item{display:flex;gap:10px;align-items:center;border-top:1px solid var(--linha);padding:8px 0}
+.conf-abrir{flex:1;min-width:0;text-align:left;background:none;border:0;padding:4px 6px;border-radius:8px;cursor:pointer;color:var(--tinta)}
+.conf-abrir:hover{background:var(--acento-claro)}.conf-abrir b{display:block;font-weight:600;overflow-wrap:anywhere}.conf-abrir .dica{display:block;margin:2px 0 0;overflow-wrap:anywhere}
+/* V1.3: selos também na barra de abas do celular; sino no vidro */
+.abas-ios .aba-ico{position:relative;display:grid;place-items:center}
+.abas-ios .aba-ico .selo{position:absolute;top:-5px;right:-12px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:#F28C38;color:#08303A;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid rgba(255,255,255,.9)}
+.sino-lista{background:rgba(250,252,252,.92);-webkit-backdrop-filter:saturate(180%) blur(28px);backdrop-filter:saturate(180%) blur(28px);border-color:rgba(255,255,255,.8);border-radius:18px}
+@media(max-width:860px){.sino-lista{top:calc(58px + var(--topo-seguro))}.topo .trilha{min-width:0;overflow:hidden}.topo .trilha b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topo .btn.mini{flex-shrink:0}}
 </style>

@@ -6,7 +6,7 @@
  *
  *  • GANHO: de uma pessoa; FIXO (todo mês, de "inicio" até "fim" — ex.: salário) ou AVULSO (só num mês — ex.: 13º).
  *  • SUA PARTE de cada gasto: o que você pagou menos o que o outro lhe devolve no acerto, ou o que você deve ao outro.
- *    (Uma compra dividida de R$ 100 no cartão do Pedro pesa R$ 50 para cada um.)
+ *    (Uma compra dividida de R$ 100 no cartão de um dos dois pesa R$ 50 para cada um.)
  *  • DISPONÍVEL = seus ganhos − sua parte dos gastos do mês − sua parte nas metas.
  *  • LIMITE por categoria: teto mensal de cada pessoa, comparado com a sua parte dos gastos da categoria.
  */
@@ -90,7 +90,7 @@ var PN = (function () {
     var rendaProx = rendaPorPessoa(prox)[ve] || 0, hoje = D.hojeISO();
     var contas = R.faturasDoMes(mes, ve).filter(function (f) { return f.titular === ve && f.total > 0; }).map(function (f) { return { tipo: 'FATURA', descricao: 'Fatura ' + f.nome, dono: f.titular, dono_nome: f.titular_nome, data: f.vencimento, valor: f.total, paga: f.paga }; })
       .concat(R.gastosFixosDoMes(mes, ve).filter(function (x) { return x.pago_por === ve; }).map(function (x) { return { tipo: 'FIXO', descricao: x.descricao, dono: x.pago_por, dono_nome: P.nomeDe(x.pago_por), data: x.data, valor: x.valor, paga: x.data <= hoje }; }))
-      .sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); });
+      .sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)); });
     return { mes: mes, rotulo: U.rotuloMes(mes), tem_rendas: D.todos('rendas').length > 0, voce: voce, parceiro: parceiro,
       casal: { renda: U.reais(Object.keys(renda).reduce(function (s, k) { return s + renda[k]; }, 0)), metas: metas.total_por_mes },
       categorias: categorias, limites: situacaoLimites(idx, mes, ve),
@@ -109,7 +109,9 @@ var PN = (function () {
     if (!(v.dia >= 1 && v.dia <= 31)) v.dia = 5;
     if (!U.mesValido(v.inicio)) throw erro_(400, v.tipo === 'AVULSA' ? 'Informe o mês em que recebeu.' : 'Informe a partir de quando recebe.');
     if (v.tipo === 'AVULSA') v.fim = v.inicio;
+    if (!U.mesPossivel(v.inicio)) throw erro_(400, U.motivoMes(v.inicio, 'Mês'));
     if (v.fim && !U.mesValido(v.fim)) v.fim = '';
+    if (v.fim && !U.mesPossivel(v.fim)) throw erro_(400, U.motivoMes(v.fim, 'Último mês'));
     if (v.fim && v.fim < v.inicio) throw erro_(400, 'O último mês não pode ser antes do primeiro.');
     v.pessoa = atual ? atual.pessoa : perfil.email;
     return v;
@@ -117,7 +119,7 @@ var PN = (function () {
   function listar(mes) {
     var itens = D.todos('rendas').map(function (r) { var o = {}; Object.keys(r).forEach(function (k) { if (k !== '_r') o[k] = r[k]; }); o.pessoa_nome = P.nomeDe(r.pessoa);
       o.situacao = noMes(r, mes) ? 'ativo' : (r.inicio > mes ? 'futuro' : 'encerrado'); return o; })
-      .sort(function (a, b) { var ord = { ativo: 0, futuro: 1, encerrado: 2 }; return ord[a.situacao] - ord[b.situacao] || a.pessoa_nome.localeCompare(b.pessoa_nome, 'pt-BR') || b.valor - a.valor; });
+      .sort(function (a, b) { var ord = { ativo: 0, futuro: 1, encerrado: 2 }; return ord[a.situacao] - ord[b.situacao] || ORD_PT_(a.pessoa_nome, b.pessoa_nome) || b.valor - a.valor; });
     var tot = rendaPorPessoa(mes);
     return { mes: mes, rotulo: U.rotuloMes(mes), itens: itens, total: U.reais(Object.keys(tot).reduce(function (s, k) { return s + tot[k]; }, 0)),
       pessoas: P.ativos().map(function (u) { return { email: u.email, nome: u.nome, total: U.reais(tot[u.email] || 0) }; }) };

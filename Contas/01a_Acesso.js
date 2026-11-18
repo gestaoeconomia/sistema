@@ -35,9 +35,22 @@ var A = (function () {
     for (var i = 0; i < n; i++) h = hex(Utilities.computeHmacSha256Signature(h + '|' + i, sal + '|' + senha));
     return h;
   }
-  function senhaForte(s) { return typeof s === 'string' && s.length >= 8 && s.length <= 200 && /[A-Za-z]/.test(s) && /\d/.test(s); }
-  function guardarSenha(email, senha) { var sal = Utilities.getUuid(); props().setProperty(chaveSenha(email), ITERACOES + '$' + sal + '$' + derivar(senha, sal, ITERACOES)); }
+  function senhaForte(s) { if (typeof s === 'string') s = s.trim(); return typeof s === 'string' && s.length >= 8 && s.length <= 200 && /[A-Za-z]/.test(s) && /\d/.test(s); }
+  function guardarSenha(email, senha) { senha = String(senha).replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, ''); var sal = Utilities.getUuid(); props().setProperty(chaveSenha(email), ITERACOES + '$' + sal + '$' + derivar(senha, sal, ITERACOES)); }
+  /**
+   * V1.2 (do SIG V6.4): aceita a senha como digitada e, se não conferir, sem espaços nas pontas (cópia do WhatsApp/e-mail
+   * costuma trazer espaço ou quebra de linha) e com a 1ª letra trocada entre maiúscula e minúscula (o corretor do celular
+   * pôs "Senha123" no cadastro e a pessoa digita "senha123", ou o contrário).
+   */
   function confereSenha(email, senha) {
+    if (typeof senha !== 'string') return false;
+    if (confereExato(email, senha)) return true;
+    var t = senha.replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, '');
+    if (t !== senha && !!t && confereExato(email, t)) return true;
+    var c = t.charAt(0), o = c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase();
+    return !!t && o !== c && confereExato(email, o + t.slice(1));
+  }
+  function confereExato(email, senha) {
     var g = String(props().getProperty(chaveSenha(email)) || '').split('$'); if (g.length !== 3 || typeof senha !== 'string') return false;
     var calc = derivar(senha, g[1], Number(g[0]) || ITERACOES), ref = g[2], d = calc.length ^ ref.length;
     for (var i = 0; i < ref.length; i++) d |= calc.charCodeAt(i) ^ ref.charCodeAt(i);

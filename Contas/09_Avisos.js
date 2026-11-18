@@ -16,7 +16,7 @@ var AV = (function () {
     D.definirConfig('avisos:' + email, JSON.stringify(p)); return p;
   }
   function acionadorAtivo() { try { return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'avisosDiarios'; }); } catch (e) { return null; } }
-  function urlApp() { try { return ScriptApp.getService().getUrl() || ''; } catch (e) { return ''; } }
+  function urlApp() { try { return linkPublico_() || ''; } catch (e) { return ''; } } // V1.2: link sem /a/macros/ nem /u/1/ (ou a página de acesso externa)
   function somarDias(iso, n) { var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function brl(v) { var n = Number(v) || 0, s = Math.abs(n).toFixed(2).split('.'); return (n < 0 ? '−' : '') + 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1]; }
   function dm(iso) { return String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7); }
@@ -124,7 +124,48 @@ var AV = (function () {
     D.auditar(perfil.email, 'Enviou e-mail de teste', 'config', 'avisos:' + perfil.email, null);
     return { ok: true, para: u.email, lembretes: l.itens.length };
   }
-  return { prefs: prefs, salvarPrefs: salvarPrefs, acionadorAtivo: acionadorAtivo, rodar: rodar, teste: teste, lembretesDe: lembretesDe, resumoMensal: resumoMensal };
+  /**
+   * V1.2 (do SIG V6.5/V6.6 — notificações no app e selos na barra lateral): os mesmos lembretes do e-mail, na hora, dentro do app.
+   * Não depende das preferências de e-mail nem do "já avisei". Cada item diz para qual tela levar (rota) e conta no selo dela.
+   *  • faturas dos SEUS cartões não pagas que vencem em até 3 dias ou que venceram há até 10 dias;
+   *  • gastos fixos de pix/débito seus que vencem em até 3 dias;
+   *  • categorias acima de 80% do limite no mês atual;
+   *  • acerto pendente do mês que passou (e do atual, nos 2 últimos dias do mês).
+   */
+  function itensApp(email, hojeOpc) {
+    var hoje = hojeOpc || D.hojeISO(), ate = somarDias(hoje, 3), desde = somarDias(hoje, -10), mes = hoje.slice(0, 7), out = [];
+    [U.somarMeses(mes, -1), mes, U.somarMeses(mes, 1)].forEach(function (m) {
+      R.faturasDoMes(m, email).forEach(function (f) {
+        if (f.titular !== email || f.paga || !(f.total > 0) || f.vencimento < desde || f.vencimento > ate) return;
+        var venceu = f.vencimento < hoje;
+        out.push({ tipo: venceu ? 'atraso' : 'fatura', nivel: venceu || f.vencimento === hoje ? 'alto' : 'medio', rota: 'faturas', query: { cartao: f.id, mes: m },
+          titulo: (venceu ? 'Fatura vencida: ' : 'Fatura ') + f.nome, texto: (venceu ? 'Venceu em ' + dm(f.vencimento) : f.vencimento === hoje ? 'Vence hoje' : 'Vence em ' + dm(f.vencimento)) + ' · ' + brl(f.total) + (venceu ? ' · se já pagou, marque como paga' : ''), data: f.vencimento });
+      });
+    });
+    [mes, U.somarMeses(mes, 1)].forEach(function (m) {
+      R.gastosFixosDoMes(m, email).forEach(function (x) {
+        if (x.pago_por !== email || x.data < hoje || x.data > ate) return;
+        out.push({ tipo: 'fixo', nivel: x.data === hoje ? 'alto' : 'medio', rota: 'fixos', query: {}, titulo: 'Gasto fixo: ' + x.descricao,
+          texto: (x.data === hoje ? 'Vence hoje' : 'Vence em ' + dm(x.data)) + ' · ' + brl(x.valor) + ' (' + ({ PIX: 'pix', DEBITO: 'débito', DINHEIRO: 'dinheiro' }[x.forma] || x.forma) + ')', data: x.data });
+      });
+    });
+    PN.situacaoLimites(R.indice(), mes, email).forEach(function (l) {
+      if (l.nivel === 'ok') return;
+      out.push({ tipo: 'limite', nivel: l.nivel === 'estourou' ? 'alto' : 'medio', rota: 'resumo', query: {}, titulo: (l.nivel === 'estourou' ? 'Limite estourado: ' : 'Perto do limite: ') + l.categoria,
+        texto: brl(l.gasto) + ' de ' + brl(l.teto) + ' (' + String(l.pct).replace('.', ',') + '%) em ' + U.rotuloMes(mes), data: hoje });
+    });
+    var dias = new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate(), mesesAc = [U.somarMeses(mes, -1)];
+    if (Number(hoje.slice(8, 10)) >= dias - 1) mesesAc.push(mes);
+    mesesAc.forEach(function (m) {
+      var ac = R.acerto(m); if (!ac.pendente) return;
+      out.push({ tipo: 'acerto', nivel: ac.pendente.devedor.email === email ? 'alto' : 'medio', rota: 'acerto', query: { mes: m }, titulo: 'Acerto de ' + U.rotuloMes(m), texto: frasePendente(ac.pendente, email) + '.', data: m + '-01' });
+    });
+    var ordem = { alto: 0, medio: 1 };
+    out.sort(function (a, b) { return ordem[a.nivel] - ordem[b.nivel] || ORD_TXT_(a.data, b.data); });
+    var selos = {}; out.forEach(function (x) { selos[x.rota] = (selos[x.rota] || 0) + 1; });
+    return { itens: out, selos: selos, hoje: hoje };
+  }
+  return { itensApp: itensApp, prefs: prefs, salvarPrefs: salvarPrefs, acionadorAtivo: acionadorAtivo, rodar: rodar, teste: teste, lembretesDe: lembretesDe, resumoMensal: resumoMensal };
 })();
 
 /** Acionador diário (criado pelo instalar()/criarAcionadorAvisos()). Não chame pelo app. */

@@ -23,6 +23,27 @@ function painelAvisos(perfil) {
   })();
   return h('div', { class: 'painel' }, h('h2', {}, 'Avisos por e-mail'), h('p', { class: 'sub' }, 'Enviados para ' + perfil.email + ' às 8h. Só com as suas contas — o outro não recebe nada seu.'), corpo);
 }
+/**
+ * V1.3 — Site do app (GitHub Pages): o endereço gravado aqui vai nos e-mails de aviso (em vez do link do Apps Script).
+ * Aberto pelo próprio site, um toque em "Usar este endereço" já preenche.
+ */
+function painelSite() {
+  const corpo = h('div', {}, h('p', { class: 'carregando' }, 'Carregando…')), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const aqui = window.SITE_ESTATICO ? (location.origin + location.pathname).replace(/index\.html$/, '') : '';
+  async function carregar() {
+    let r; try { r = await GET('/api/acesso-externo'); } catch (e) { limpar(corpo).append(h('div', { class: 'erro-txt' }, e.message)); return; }
+    const ext = h('input', { type: 'text', inputmode: 'url', autocapitalize: 'off', spellcheck: false, value: r.externa || '', placeholder: 'https://seu-usuario.github.io/sistema/' });
+    const salvar = async v => { msg.textContent = ''; try { await PUT('/api/acesso-externo', { externa: v }); toast(v ? 'Endereço salvo.' : 'Endereço removido.'); carregar(); } catch (e) { msg.textContent = e.message; } };
+    limpar(corpo).append(
+      r.externa ? h('p', { class: 'dica' }, 'Os e-mails de aviso levam para: ', h('a', { href: r.externa, target: '_blank', rel: 'noopener', style: { overflowWrap: 'anywhere' } }, r.externa))
+        : h('div', { class: 'aviso info' }, 'Ainda sem endereço: os e-mails levam para o link do Apps Script.'),
+      aqui && aqui !== r.externa ? h('div', { class: 'acoes-linha', style: { margin: '8px 0' } }, h('button', { class: 'btn sec', type: 'button', onclick: () => salvar(aqui) }, ico('ok'), 'Usar este endereço (' + aqui.replace(/^https?:\/\//, '') + ')')) : null,
+      campo('Endereço do site', ext, { dica: 'Deixe vazio para os e-mails usarem o link do Apps Script.' }), msg,
+      h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => salvar(ext.value.trim()) }, 'Salvar endereço')));
+  }
+  carregar();
+  return h('div', { class: 'painel' }, h('h2', {}, 'Site do app'), h('p', { class: 'sub' }, 'O endereço do GitHub Pages, que vai nos e-mails de aviso. No iPhone: abra no Safari ▸ Compartilhar ▸ “Adicionar à Tela de Início”.'), corpo);
+}
 function render(alvo, { perfil }) {
   const nome = h('input', { type: 'text', value: perfil.nome, maxlength: 80 }), msgNome = h('div', { class: 'erro-txt', role: 'alert' });
   const at = h('input', { type: 'password', autocomplete: 'current-password' }), n1 = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' }), n2 = h('input', { type: 'password', autocomplete: 'new-password' }), msgSenha = h('div', { class: 'erro-txt', role: 'alert' });
@@ -47,6 +68,7 @@ function render(alvo, { perfil }) {
               try { await POST('/api/auth/redefinir-parceiro', { minha_senha: minha.value, nova: p1.value }); minha.value = p1.value = p2.value = ''; toast('Nova senha definida para ' + par.apelido + '.'); } catch (e) { msgPar.textContent = e.message; } } }, ico('chave'), 'Redefinir senha de ' + par.apelido)))
           : h('div', { class: 'aviso info' }, 'Ninguém mais tem conta ainda. Envie o link deste app para a outra pessoa: na tela de entrada, ela clica em “Criar conta”. O app aceita só duas contas.')),
       painelAvisos(perfil),
+      painelSite(),
       h('div', { class: 'painel' }, h('h2', {}, 'Limites por categoria'), h('p', { class: 'sub' }, 'Defina um teto mensal para as categorias que quer controlar. O Início mostra a barra de cada uma e o app avisa por e-mail aos 80% e aos 100%.'),
         h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_resumo.gerenciarLimites() }, ico('editar'), 'Definir limites')),
       h('div', { class: 'painel' }, h('h2', {}, 'Como o app funciona'),

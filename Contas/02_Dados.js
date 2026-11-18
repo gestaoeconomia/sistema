@@ -28,6 +28,8 @@ var D = (function () {
     acertos:   { aba: 'ACERTOS',   cols: 'id:s mes:s de:s para:s valor:n data:s obs:s criado_por:s criado_em:s' },
     // limites (tetos) mensais por categoria, de cada pessoa — comparados com a "sua parte" dos gastos
     limites:   { aba: 'LIMITES',   cols: 'id:s dono:s categoria:s valor:n obs:s criado_em:s atualizado_em:s', cache: 1 },
+    // V1.3: notificações para o(a) parceiro(a) (compras e pix/débito divididos lançados, alterados ou excluídos)
+    notificacoes: { aba: 'NOTIFICACOES', cols: 'id:s para:s de:s tipo:s titulo:s texto:s rota:s query:s ref:s criado_em:s lida_em:s', cache: 1 },
     auditoria: { aba: 'AUDITORIA', cols: 'id:n quando:s usuario:s acao:s entidade:s entidade_id:s detalhe:s' },
     config:    { aba: 'CONFIG',    cols: 'chave:s valor:s' }
   };
@@ -182,7 +184,7 @@ var D = (function () {
     var n = Number(v) + 1;
     p.setProperty(k, String(n)); return n;
   }
-  var TAB_PREFIXO = { CAR: 'cartoes', CMP: 'compras', GAS: 'gastos', ACE: 'acertos', REC: 'recorrentes', MET: 'metas', APO: 'aportes', GAN: 'rendas' };
+  var TAB_PREFIXO = { CAR: 'cartoes', CMP: 'compras', GAS: 'gastos', ACE: 'acertos', REC: 'recorrentes', MET: 'metas', APO: 'aportes', GAN: 'rendas', LIM: 'limites', NOT: 'notificacoes' }; // V1.2: LIM (limites) entrou — antes um contador zerado podia repetir ID
   function maximo(prefixo) {
     var tab = TAB_PREFIXO[prefixo]; if (!tab) return 0; var mx = 0;
     todos(tab).forEach(function (o) { var n = parseInt(String(o.id).slice(prefixo.length + 1), 10); if (n > mx) mx = n; });

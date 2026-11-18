@@ -11,10 +11,10 @@
 <link rel="apple-touch-icon" sizes="167x167" href="icones/icone-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="icones/icone-152.png">
 <script>window.SITE_ESTATICO = true;</script>
-<script src="config.js?v=V1.2%20-%2013%2F11%2F2026"></script><meta name="referrer" content="no-referrer">
+<script src="config.js?v=V1.3%20-%2018%2F11%2F2026"></script><meta name="referrer" content="no-referrer">
 <title>Gestão Financeira</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* Gestão Financeira — identidade "Dois tons, uma casa": petróleo + tangerina, Bricolage Grotesque (títulos) e Figtree (texto). */
 :root{
@@ -325,7 +325,7 @@ input[type=date]::-webkit-calendar-picker-indicator,input[type=month]::-webkit-c
   --papel:#F3F6F6;--tinta:#17242A;--tinta-2:#4D5D62;--tinta-3:#5F6F74;--linha:#DCE4E5;--linha-forte:#B9C9CC;
   --ambar:#A85410;--ambar-bg:#FDEBDD;--vermelho:#B53636;--vermelho-bg:#FBE5E5;--verde:#1C7A56;--verde-bg:#E1F2EA;
   --pessoa-a:#0E4D5B;--pessoa-b:#F28C38;
-  --fonte:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;--fonte-titulo:'Bricolage Grotesque','Figtree',system-ui,sans-serif;--r:16px;
+  --fonte:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;--fonte-titulo:'Plus Jakarta Sans','Figtree',system-ui,sans-serif;--r:16px;
 }
 :focus-visible{outline:3px solid #F2B37A;outline-offset:2px}
 .cab-pagina h1,.painel>h2,.titulo-painel h2,.destaque .frase,.kpi .v,.meta-mensal .v,.cab-acesso h2,.nav .marca b,.pessoa h3{font-family:var(--fonte-titulo);letter-spacing:-.02em}
@@ -534,17 +534,115 @@ input:focus,select:focus,textarea:focus{background:#fff;box-shadow:0 0 0 4px rgb
   .painel,.kpi,.pessoa,.meta,.seletor-mes,.modal,.topo,.abas-ios{background:rgba(255,255,255,.96)}.nav{background:#08303A}
 }
 @media print{.abas-ios,.veu-menu{display:none!important}body::before{display:none}}
+/* ---------- V1.2 (do SIG V6.11.3): carregamento entre as telas ---------- */
+.principal{position:relative}
+.conteudo.tc-oculto{opacity:0;pointer-events:none;min-height:62vh}
+.tc{position:absolute;left:0;right:0;min-height:62vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;z-index:5;opacity:0;transition:opacity .25s ease;pointer-events:none}
+.tc.vis{opacity:1}.tc.saindo{opacity:0;transition-duration:.18s}
+.tc .tc-ic{position:relative;width:96px;height:96px;display:grid;place-items:center;margin-bottom:18px}
+.tc .tc-tile{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(160deg,#14687A,#0E4D5B);color:#fff;box-shadow:0 10px 24px rgba(14,77,91,.28);animation:tcRespira 2s ease-in-out infinite}
+.tc .tc-tile svg.ico{width:30px;height:30px}
+.tc .tc-anel{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(242,140,56,.18);border-top-color:#F28C38;animation:tcGira 1.2s linear infinite}
+.tc h3{margin:0;font-size:19px;font-weight:800;color:var(--tinta)}
+.tc .tc-fr{margin:14px 0 0;max-width:470px;font-size:15.5px;line-height:1.5;font-style:italic;color:var(--tinta-2);min-height:48px;transition:opacity .3s}
+.tc .tc-fr.troca{opacity:0}
+.tc .tc-fr::before{content:'\201C';color:#F28C38;font-weight:800;margin-right:2px}.tc .tc-fr::after{content:'\201D';color:#F28C38;font-weight:800;margin-left:2px}
+.tc .tc-barra{margin-top:18px;width:200px;height:4px;border-radius:4px;background:rgba(14,77,91,.14);overflow:hidden;position:relative}
+.tc .tc-barra i{position:absolute;top:0;bottom:0;width:38%;border-radius:4px;background:linear-gradient(90deg,#F28C38,#0E4D5B);animation:tcBarra 1.4s ease-in-out infinite}
+@keyframes tcGira{to{transform:rotate(360deg)}}
+@keyframes tcRespira{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes tcBarra{0%{left:-38%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.tc .tc-tile,.tc .tc-barra i{animation:none}.tc .tc-anel{animation-duration:3s}}
+@media print{.tc{display:none!important}.conteudo.tc-oculto{opacity:1}}
+/* ---------- V1.2: menu recolhível, selos, sino de avisos e "arquivo pronto" ---------- */
+.recolher-nav{display:flex;align-items:center;gap:10px;background:none;border:0;border-top:1px solid #13414D;color:#9FBAC0;cursor:pointer;padding:10px 20px;font-size:13px;flex-shrink:0;text-align:left}
+.recolher-nav:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav a.item .rot{flex:1;min-width:0}
+.nav a.item .selo{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#F28C38;color:#08303A;font-size:11.5px;font-weight:800;display:inline-grid;place-items:center;line-height:1}
+@media(min-width:861px){
+  body.nav-mini .app{grid-template-columns:72px minmax(0,1fr)}
+  body.nav-mini .nav .marca{padding:16px 0;justify-content:center}body.nav-mini .nav .marca>div{display:none}
+  body.nav-mini .recolher-nav{justify-content:center;padding:10px 0}body.nav-mini .recolher-nav .rot{display:none}body.nav-mini .recolher-nav svg{transform:rotate(180deg)}
+  body.nav-mini .nav .grupo{font-size:0;padding:8px 0 2px;margin:0 16px;border-top:1px solid #13414D}
+  body.nav-mini .nav a.item{justify-content:center;margin:2px 10px;padding:10px 0;position:relative}
+  body.nav-mini .nav a.item .rot{display:none}
+  body.nav-mini .nav a.item .selo{position:absolute;top:2px;right:2px;min-width:16px;height:16px;font-size:10px;padding:0 4px}
+  body.nav-mini .nav .eu{justify-content:center;padding:12px 0}body.nav-mini .nav .eu>div:not(.avatar){display:none}
+}
+@media(max-width:860px){.recolher-nav{display:none}}
+.sino-caixa{position:relative}
+.btn.sino{position:relative}
+.sino-bolha{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--acento);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid #fff}
+.sino-bolha.alto{background:var(--vermelho)}
+.sino-lista{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(380px,calc(100vw - 24px));max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--linha);border-radius:14px;box-shadow:0 18px 40px rgba(8,48,58,.18);z-index:80}
+.sino-caixa.aberto .sino-lista{display:block}
+.sino-cab{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px 6px}
+.sino-item{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--linha);padding:10px 14px;cursor:pointer;color:var(--tinta)}
+.sino-item:hover{background:var(--acento-claro)}
+.sino-item b{display:block;font-weight:600}.sino-item .dica{display:block;margin:2px 0 0}
+.sino-ponto{width:9px;height:9px;border-radius:50%;background:#F28C38;margin-top:6px;flex-shrink:0}
+.sino-item.alto .sino-ponto{background:var(--vermelho)}
+@media(max-width:860px){.sino-lista{position:fixed;left:12px;right:12px;top:58px;width:auto}}
+.arq-pronto .arq-nome{font-weight:700;overflow-wrap:anywhere;margin-bottom:6px}
+.arq-pronto .acoes-linha{margin-top:12px}
+.sino-cab.sep{border-top:6px solid var(--papel)}
+.sino-bolha.novidade{background:#F28C38;color:#08303A}
+.sino-item.novidade .sino-ponto{background:var(--acento)}.sino-item.novidade.lida .sino-ponto{background:transparent;border:2px solid var(--linha-forte)}
+.sino-item.novidade.lida b{font-weight:500}
+.sino-quando{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:2px}
+@media print{.sino-caixa{display:none!important}}
+.conf-grupo{margin-bottom:16px}.conf-grupo .chip{vertical-align:2px}
+.conf-itens{display:grid;gap:0;margin-top:8px}
+.conf-item{display:flex;gap:10px;align-items:center;border-top:1px solid var(--linha);padding:8px 0}
+.conf-abrir{flex:1;min-width:0;text-align:left;background:none;border:0;padding:4px 6px;border-radius:8px;cursor:pointer;color:var(--tinta)}
+.conf-abrir:hover{background:var(--acento-claro)}.conf-abrir b{display:block;font-weight:600;overflow-wrap:anywhere}.conf-abrir .dica{display:block;margin:2px 0 0;overflow-wrap:anywhere}
+/* V1.3: selos também na barra de abas do celular; sino no vidro */
+.abas-ios .aba-ico{position:relative;display:grid;place-items:center}
+.abas-ios .aba-ico .selo{position:absolute;top:-5px;right:-12px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:#F28C38;color:#08303A;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid rgba(255,255,255,.9)}
+.sino-lista{background:rgba(250,252,252,.92);-webkit-backdrop-filter:saturate(180%) blur(28px);backdrop-filter:saturate(180%) blur(28px);border-color:rgba(255,255,255,.8);border-radius:18px}
+@media(max-width:860px){.sino-lista{top:calc(58px + var(--topo-seguro))}.topo .trilha{min-width:0;overflow:hidden}.topo .trilha b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topo .btn.mini{flex-shrink:0}}
 </style>
 
 </head>
-<body><div id="app"><p class="carregando">Carregando…</p></div><div id="toasts" aria-live="polite"></div>
-<script>window.APP_VERSAO = 'V1.2 - 13/11/2026';</script>
+<body><!-- V1.2 (do SIG V6.11.1): tela de abertura (a mesma da página de acesso) que fica até a primeira tela estar pronta -->
+<style>#splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;background:linear-gradient(170deg,#14687A,#0E4D5B 55%,#08303A);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;transition:opacity .4s ease,transform .4s ease}
+#splash.saindo{opacity:0;transform:scale(1.03);pointer-events:none}
+#splash .sp-c{padding:24px;max-width:420px}
+#splash img{width:84px;height:84px;border-radius:22px;box-shadow:0 10px 26px rgba(0,0,0,.25);margin-bottom:18px}
+#splash .sp-r{width:42px;height:42px;border:4px solid rgba(255,255,255,.3);border-top-color:#F28C38;border-radius:50%;margin:0 auto 16px;animation:spGira 1s linear infinite}
+@keyframes spGira{to{transform:rotate(360deg)}}
+#splash b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px;font-family:"Plus Jakarta Sans",system-ui,sans-serif}#splash .sp-ola{font-size:19px;font-weight:700;margin:18px 0 0}#splash .sp-ola:empty{display:none}#splash .sp-ola:not(:empty)+p{margin-top:4px}#splash p{margin:8px 0 0;font-size:15px;min-height:20px}
+#splash .sp-dem{margin-top:14px;font-size:13px;color:#D7ECF0;opacity:0;transition:opacity .3s}#splash .sp-dem.vis{opacity:1}
+@media (prefers-reduced-motion:reduce){#splash,#splash .sp-r{transition:none;animation-duration:2.5s}}</style>
+<div id="splash" role="status" aria-live="polite"><div class="sp-c"><img src="data:image/png;base64,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" alt=""><div class="sp-r"></div><b>Gestão Financeira</b><p class="sp-ola" id="splash-ola"></p><p id="splash-msg">Carregando…</p><p class="sp-dem" id="splash-dem">Está demorando mais que o normal… Verifique a internet.</p></div></div>
+<script>/* SPLASH.msg(texto) troca a etapa; SPLASH.adiar() devolve uma função "terminei" para telas que carregam dados depois de desenhar;
+   SPLASH.telaPronta() avisa que a primeira tela foi desenhada; a tela some quando as duas coisas acontecem. Nunca prende: aviso aos 15 s e sai sozinha aos 30 s. */
+window.SPLASH = (function () {
+  var el = document.getElementById('splash'), pend = 0, desenhada = false, foi = false, t1, t2;
+  var molde = el ? el.cloneNode(true) : null;   // para reabrir (ex.: retomar a sessão depois que ela expirou com o app aberto)
+  function relogios() { clearTimeout(t1); clearTimeout(t2); t1 = setTimeout(function () { var d = document.getElementById('splash-dem'); if (d) d.classList.add('vis'); }, 15000); t2 = setTimeout(fim, 30000); }
+  relogios();
+  function fim() { if (foi || !el) return; foi = true; clearTimeout(t1); clearTimeout(t2); el.classList.add('saindo'); var e = el; setTimeout(function () { if (e && e.parentNode) e.parentNode.removeChild(e); }, 450); }
+  function tentar() { if (desenhada && pend <= 0) fim(); }
+  return {
+    msg: function (t) { var m = document.getElementById('splash-msg'); if (m && !foi) m.textContent = t; },
+    adiar: function () { if (foi) return function () {}; pend++; var feito = false; return function () { if (feito) return; feito = true; pend--; tentar(); }; },
+    telaPronta: function () { desenhada = true; setTimeout(tentar, 0); },
+    ola: function (nome) { var o = document.getElementById('splash-ola'); if (o) o.textContent = nome ? 'Ol\u00e1, ' + nome + '!' : ''; },
+    novaTela: function () { desenhada = false; },
+    reabrir: function () { if (!foi || !molde) return; el = molde.cloneNode(true); document.body.appendChild(el); foi = false; pend = 0; desenhada = false; relogios(); },
+    fim: fim, ativa: function () { return !foi; }
+  };
+})();</script>
+<div id="app"></div><div id="toasts" aria-live="polite"></div>
+<script>window.APP_VERSAO = 'V1.3 - 18/11/2026';</script>
 <script>
 window.__erros = []; window.addEventListener('error', function (e) {
   try {
     var det = (e.message || 'erro') + ' (linha ' + e.lineno + ', coluna ' + (e.colno || 0) + ')';
     window.__erros.push(det); var a = document.getElementById('app');
-    if (a && a.querySelector('.carregando')) { var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;color:#a00;font:12px monospace;padding:16px;max-width:900px;margin:20px auto;background:#fff3f0'; pre.textContent = 'Falha ao iniciar a tela:\n' + det; a.innerHTML = ''; a.appendChild(pre); }
+    // V1.2: com a tela de abertura, o #app começa vazio — erro antes da 1ª tela tira a abertura e mostra o motivo
+    if (a && (a.querySelector('.carregando') || (!a.firstChild && window.SPLASH && SPLASH.ativa()))) { if (window.SPLASH) SPLASH.fim(); var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;color:#a00;font:12px monospace;padding:16px;max-width:900px;margin:20px auto;background:#fff3f0'; pre.textContent = 'Falha ao iniciar a tela:\n' + det; a.innerHTML = ''; a.appendChild(pre); }
   } catch (_) {}
 });
 </script>
@@ -601,6 +699,8 @@ function mascararMoeda(el) {
   try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { /* alguns tipos não aceitam */ }
 }
 document.addEventListener('input', ev => { const el = ev.target; if (el && el.matches && el.matches('input[inputmode=decimal]:not([data-livre])')) mascararMoeda(el); }, true);
+// V1.2 (do SIG V6.8): o calendário dos campos de data só oferece datas possíveis (2010 a 2100) — o servidor também confere
+document.addEventListener('focusin', ev => { const el = ev.target; if (el && el.tagName === 'INPUT' && (el.type === 'date' || el.type === 'month')) { const d = el.type === 'date'; if (!el.min) el.min = d ? '2010-01-01' : '2010-01'; if (!el.max) el.max = d ? '2100-12-31' : '2100-12'; } }, true);
 const valorEdicao = n => n == null || n === '' ? '' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ICONES = {
@@ -629,6 +729,9 @@ const ICONES = {
   escudo: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
   livro: 'M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5M8 7h7',
   arquivo: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h6',
+  sino: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
+  recolher: 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
+  lupa: 'M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3',
 };
 function ico(nome, extra) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true');
@@ -734,7 +837,7 @@ function mostrarIndicador(mais) {
 }
 const emAndamento = new Map();
 function api(metodo, url, corpo, opcoes = {}) {
-  if (metodo === 'GET') return apiBase(metodo, url, corpo, opcoes);
+  if (metodo === 'GET' || opcoes.silencioso) return apiBase(metodo, url, corpo, opcoes);   // silencioso (V1.3): gravação de fundo, sem "Processando…"
   const chave = metodo + ' ' + url + ' ' + JSON.stringify(corpo === undefined ? null : corpo) + ' ' + (opcoes.raw ? opcoes.raw.length + ':' + opcoes.raw.slice(0, 64) : '');
   if (emAndamento.has(chave)) return emAndamento.get(chave); // clique duplo que escapou: não grava duas vezes
   const recente = Date.now() - ultimoClique.t < 3000 ? ultimoClique.el : null, liberar = ocupar(recente); mostrarIndicador(1);
@@ -751,17 +854,31 @@ async function apiBase(metodo, url, corpo, opcoes = {}) {
   return opcoes.bruto ? r : r.d;
 }
 const GET = (u, o) => api('GET', u, undefined, o);
-const POST = (u, b, o) => api('POST', u, b === undefined ? {} : b, o);
+const POST = (u, b, o) => api('POST', u, b === undefined ? {} : b, o || {});
 /** Lê um arquivo do computador/celular como base64 (para enviar o PDF da fatura). */
 const lerArquivoBase64 = arq => new Promise((ok, falha) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => falha(new ErroApi('Não foi possível ler o arquivo.', 0)); fr.readAsDataURL(arq); });
 const PUT = (u, b) => api('PUT', u, b);
 const DEL = u => api('DELETE', u, {});
+/* V1.2 (do SIG V6.4) — arquivos no celular. O app roda dentro de um iframe do Google; no celular o navegador só aceita baixar
+ * "no toque" da pessoa, e o arquivo chega do servidor segundos depois (o toque já "expirou": o download era bloqueado em silêncio).
+ * Agora, se o toque expirou (ou é celular), aparece "Arquivo pronto" com o botão Baixar — um toque novo, que o navegador aceita.
+ * O endereço temporário do arquivo vale 10 minutos (antes: 1 segundo, curto demais para o celular). */
+const ehCelular = () => { try { return matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); } catch (_) { return false; } };
+const toqueAtivo = () => { try { return !navigator.userActivation || navigator.userActivation.isActive; } catch (_) { return true; } };
+function salvarArquivo(blob, nome) {
+  const url = URL.createObjectURL(blob); setTimeout(() => URL.revokeObjectURL(url), 600000);
+  if (!ehCelular() && toqueAtivo()) { const a = document.createElement('a'); a.href = url; a.download = nome; document.body.append(a); a.click(); setTimeout(() => a.remove(), 2000); return; }
+  const { modal } = __m_ui, { h } = __m_util; let jan;
+  const ehPdf = /pdf/i.test(blob.type || '') || /\.pdf$/i.test(nome), fechar = () => setTimeout(() => jan && jan.fechar(), 800);
+  jan = modal({ titulo: 'Arquivo pronto', corpo: h('div', { class: 'arq-pronto' }, h('div', { class: 'arq-nome' }, nome), h('p', { class: 'dica' }, 'Toque em “Baixar” para salvar no aparelho.' + (ehPdf ? ' “Abrir” mostra o PDF numa nova aba (de lá dá para compartilhar ou imprimir).' : '')),
+    h('div', { class: 'acoes-linha' }, h('a', { class: 'btn', href: url, download: nome, onclick: fechar }, 'Baixar'), ehPdf ? h('a', { class: 'btn sec', href: url, target: '_blank', rel: 'noopener', onclick: fechar }, 'Abrir') : null)) });
+}
 async function baixar(url, nomePadrao) {
   const r = await api('GET', url, undefined, { bruto: true }); if (!r.f) throw new ErroApi('O servidor não devolveu o arquivo.', 500);
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blobDe(r.f)); a.download = r.f.nome || nomePadrao; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  salvarArquivo(blobDe(r.f), r.f.nome || nomePadrao);
 }
 async function carregarDominios(forcar) { if (!estado.dominios || forcar) estado.dominios = await GET('/api/dominios'); return estado.dominios; }
-return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
+return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, salvarArquivo, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
 })();
 </script>
 <script>/* ui */
@@ -2025,6 +2142,27 @@ function painelAvisos(perfil) {
   })();
   return h('div', { class: 'painel' }, h('h2', {}, 'Avisos por e-mail'), h('p', { class: 'sub' }, 'Enviados para ' + perfil.email + ' às 8h. Só com as suas contas — o outro não recebe nada seu.'), corpo);
 }
+/**
+ * V1.3 — Site do app (GitHub Pages): o endereço gravado aqui vai nos e-mails de aviso (em vez do link do Apps Script).
+ * Aberto pelo próprio site, um toque em "Usar este endereço" já preenche.
+ */
+function painelSite() {
+  const corpo = h('div', {}, h('p', { class: 'carregando' }, 'Carregando…')), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  const aqui = window.SITE_ESTATICO ? (location.origin + location.pathname).replace(/index\.html$/, '') : '';
+  async function carregar() {
+    let r; try { r = await GET('/api/acesso-externo'); } catch (e) { limpar(corpo).append(h('div', { class: 'erro-txt' }, e.message)); return; }
+    const ext = h('input', { type: 'text', inputmode: 'url', autocapitalize: 'off', spellcheck: false, value: r.externa || '', placeholder: 'https://seu-usuario.github.io/sistema/' });
+    const salvar = async v => { msg.textContent = ''; try { await PUT('/api/acesso-externo', { externa: v }); toast(v ? 'Endereço salvo.' : 'Endereço removido.'); carregar(); } catch (e) { msg.textContent = e.message; } };
+    limpar(corpo).append(
+      r.externa ? h('p', { class: 'dica' }, 'Os e-mails de aviso levam para: ', h('a', { href: r.externa, target: '_blank', rel: 'noopener', style: { overflowWrap: 'anywhere' } }, r.externa))
+        : h('div', { class: 'aviso info' }, 'Ainda sem endereço: os e-mails levam para o link do Apps Script.'),
+      aqui && aqui !== r.externa ? h('div', { class: 'acoes-linha', style: { margin: '8px 0' } }, h('button', { class: 'btn sec', type: 'button', onclick: () => salvar(aqui) }, ico('ok'), 'Usar este endereço (' + aqui.replace(/^https?:\/\//, '') + ')')) : null,
+      campo('Endereço do site', ext, { dica: 'Deixe vazio para os e-mails usarem o link do Apps Script.' }), msg,
+      h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => salvar(ext.value.trim()) }, 'Salvar endereço')));
+  }
+  carregar();
+  return h('div', { class: 'painel' }, h('h2', {}, 'Site do app'), h('p', { class: 'sub' }, 'O endereço do GitHub Pages, que vai nos e-mails de aviso. No iPhone: abra no Safari ▸ Compartilhar ▸ “Adicionar à Tela de Início”.'), corpo);
+}
 function render(alvo, { perfil }) {
   const nome = h('input', { type: 'text', value: perfil.nome, maxlength: 80 }), msgNome = h('div', { class: 'erro-txt', role: 'alert' });
   const at = h('input', { type: 'password', autocomplete: 'current-password' }), n1 = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' }), n2 = h('input', { type: 'password', autocomplete: 'new-password' }), msgSenha = h('div', { class: 'erro-txt', role: 'alert' });
@@ -2049,6 +2187,7 @@ function render(alvo, { perfil }) {
               try { await POST('/api/auth/redefinir-parceiro', { minha_senha: minha.value, nova: p1.value }); minha.value = p1.value = p2.value = ''; toast('Nova senha definida para ' + par.apelido + '.'); } catch (e) { msgPar.textContent = e.message; } } }, ico('chave'), 'Redefinir senha de ' + par.apelido)))
           : h('div', { class: 'aviso info' }, 'Ninguém mais tem conta ainda. Envie o link deste app para a outra pessoa: na tela de entrada, ela clica em “Criar conta”. O app aceita só duas contas.')),
       painelAvisos(perfil),
+      painelSite(),
       h('div', { class: 'painel' }, h('h2', {}, 'Limites por categoria'), h('p', { class: 'sub' }, 'Defina um teto mensal para as categorias que quer controlar. O Início mostra a barra de cada uma e o app avisa por e-mail aos 80% e aos 100%.'),
         h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_resumo.gerenciarLimites() }, ico('editar'), 'Definir limites')),
       h('div', { class: 'painel' }, h('h2', {}, 'Como o app funciona'),
@@ -2084,9 +2223,40 @@ return { render };
 })();
 </script>
 
+<script>/* pages/conferencia — V1.2 (do SIG: "Qualidade dos dados") */
+const __m_pages_conferencia = (() => {
+const { h, limpar, ico } = __m_util;
+const { GET, POST, estado } = __m_api;
+const { cabPagina, toast } = __m_ui;
+async function render(alvo, { ir }) {
+  const corpo = h('div', {});
+  alvo.append(cabPagina('Conferência dos dados', 'O que costuma ser erro de digitação ou esquecimento nos seus lançamentos. Nada muda sozinho: toque no item para abrir a tela onde se corrige.',
+    h('button', { class: 'btn sec', type: 'button', onclick: () => carregar() }, ico('repetir'), 'Conferir de novo')), corpo);
+  async function carregar() {
+    limpar(corpo).append(h('p', { class: 'carregando' }, 'Conferindo…'));
+    const r = await GET('/api/conferencia');
+    limpar(corpo);
+    if (!r.grupos.length) corpo.append(h('div', { class: 'aviso ok' }, ico('ok'), ' Tudo certo: nenhum lançamento repetido, sem categoria, com data estranha ou fatura esquecida.'));
+    else corpo.append(h('div', { class: 'aviso info' }, ico('info'), ` ${r.total} ${r.total === 1 ? 'ponto para conferir' : 'pontos para conferir'}.`));
+    r.grupos.forEach(g => corpo.append(h('div', { class: 'painel conf-grupo' },
+      h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, g.titulo, ' ', h('span', { class: 'chip' }, String(g.total))), h('p', { class: 'sub' }, g.explica))),
+      h('div', { class: 'conf-itens' }, g.itens.map(x => h('div', { class: 'conf-item' },
+        h('button', { type: 'button', class: 'conf-abrir', onclick: () => { if (x.query && x.query.mes) estado.mes = x.query.mes; ir(x.rota, x.query); } }, h('b', {}, x.titulo), h('span', { class: 'dica' }, x.texto)),
+        x.ignoravel ? h('button', { type: 'button', class: 'btn sec mini', title: 'Esconder este item', onclick: async ev => {
+          try { await POST('/api/conferencia/ok', { chave: x.chave }); ev.target.closest('.conf-item').remove(); toast('Marcado como “não é erro”.'); } catch (e) { toast(e.message, true); } } }, 'Não é erro') : null))),
+      g.total > g.itens.length ? h('p', { class: 'dica' }, `Mostrando ${g.itens.length} de ${g.total}.`) : null)));
+    if (r.ignorados) corpo.append(h('p', { class: 'dica', style: { textAlign: 'center' } }, `${r.ignorados} ${r.ignorados === 1 ? 'item marcado' : 'itens marcados'} como “não é erro”. `,
+      h('a', { href: '#', onclick: async e => { e.preventDefault(); try { await POST('/api/conferencia/ok', { limpar: true }); toast('Voltaram a aparecer.'); carregar(); } catch (er) { toast(er.message, true); } } }, 'Mostrar de novo')));
+  }
+  await carregar();
+}
+return { render };
+})();
+</script>
+
 <script>/* main */
 const __m_main = (() => {
-const { h, ico, limpar, qs, iniciais } = __m_util;
+const { h, ico, limpar, qs, iniciais, primeiroNome } = __m_util;
 const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
 const { toast, campo } = __m_ui;
 const ROTAS = {
@@ -2098,6 +2268,7 @@ const ROTAS = {
   ganhos: { titulo: 'Ganhos', icone: 'carteira', grupo: 'Planejamento', cor: '#34C759', mod: () => __m_pages_ganhos },
   metas: { titulo: 'Metas', icone: 'alvo', grupo: 'Planejamento', cor: '#FF3B30', mod: () => __m_pages_metas },
   conta: { titulo: 'Minha conta', icone: 'usuario', grupo: 'Conta', cor: '#8E8E93', mod: () => __m_pages_conta },
+  conferencia: { titulo: 'Conferência dos dados', icone: 'escudo', grupo: 'Conta', cor: '#FF9F0A', mod: () => __m_pages_conferencia },
   historico: { titulo: 'Histórico de alterações', icone: 'relogio', grupo: 'Conta', cor: '#636366', mod: () => __m_pages_historico },
 };
 const PUBLICAS = ['login', 'cadastro'];
@@ -2108,55 +2279,91 @@ function rotaDoHash() { const [caminho, q] = location.hash.replace(/^#\/?/, '').
 function ir(nome, query) { location.hash = '#/' + nome + (query && Object.keys(query).length ? '?' + qs(query) : ''); }
 window.addEventListener('hashchange', rotear);
 
-/** Logotipo: casa-cofrinho tangerina sobre vidro petróleo (o mesmo desenho do ícone da tela inicial do iPhone). */
+/** Logotipo (V1.3) — "Casa em alta": a casa cujo telhado vira uma seta subindo, com a moeda na janela, sobre vidro petróleo
+ *  (o mesmo desenho de icones/icone.svg). */
 let nLogo = 0;
 const logo = () => { const NS = 'http://www.w3.org/2000/svg', el = (t, a, ...f) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); e.append(...f); return e; };
   const id = 'lg' + (++nLogo), stop = (o, c, op) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': op == null ? 1 : op });
   const s = el('svg', { viewBox: '0 0 64 64', class: 'logo', 'aria-hidden': 'true' });
+  const traco = { fill: 'none', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
   s.append(el('defs', {},
       el('linearGradient', { id: id + 'f', x1: 0, y1: 0, x2: 1, y2: 1 }, stop(0, '#16697A'), stop(.55, '#0E4D5B'), stop(1, '#06252D')),
-      el('radialGradient', { id: id + 'b', cx: .8, cy: .15, r: .75 }, stop(0, '#F28C38', .55), stop(1, '#F28C38', 0)),
-      el('linearGradient', { id: id + 'c', x1: 0, y1: 0, x2: 0, y2: 1 }, stop(0, '#FFC48A'), stop(1, '#F07F22'))),
+      el('radialGradient', { id: id + 'b', cx: .85, cy: .1, r: .7 }, stop(0, '#F28C38', .38), stop(1, '#F28C38', 0)),
+      el('linearGradient', { id: id + 's', x1: 0, y1: 1, x2: 1, y2: 0 }, stop(0, '#F07F22'), stop(1, '#FFB06A'))),
     el('rect', { width: 64, height: 64, rx: 15, fill: 'url(#' + id + 'f)' }), el('rect', { width: 64, height: 64, rx: 15, fill: 'url(#' + id + 'b)' }),
-    el('rect', { x: 12.5, y: 15, width: 39, height: 37, rx: 9, fill: '#fff', 'fill-opacity': .14, stroke: '#fff', 'stroke-opacity': .35, 'stroke-width': .6 }),
-    el('path', { d: 'M19 31 L32 20 L45 31 V45.5 a1.8 1.8 0 0 1 -1.8 1.8 H20.8 a1.8 1.8 0 0 1 -1.8 -1.8 Z', fill: 'none', stroke: 'url(#' + id + 'c)', 'stroke-width': 4, 'stroke-linejoin': 'round' }),
-    el('rect', { x: 28.3, y: 26.2, width: 7.4, height: 2.6, rx: 1.3, fill: 'url(#' + id + 'c)' }), el('circle', { cx: 32, cy: 37.5, r: 4.9, fill: 'url(#' + id + 'c)' }));
+    el('g', { transform: 'translate(3.4 4) scale(.56)' },
+      el('path', Object.assign({ d: 'M18 84 V50 L46 26 L60 40', stroke: '#fff' }, traco)), el('path', Object.assign({ d: 'M18 84 H74 V56', stroke: '#fff' }, traco)),
+      el('path', Object.assign({ d: 'M60 40 L84 16', stroke: 'url(#' + id + 's)' }, traco)), el('path', Object.assign({ d: 'M66 16 H84 V34', stroke: 'url(#' + id + 's)' }, traco)),
+      el('circle', { cx: 46, cy: 62, r: 8, fill: 'url(#' + id + 's)' })));
   return s; };
 /** Bloco de ícone colorido, como nos Ajustes do iPhone. */
 const bloco = (nome, cor) => h('span', { class: 'bloco-ico', style: { background: cor } }, ico(nome));
 function paginaAcesso(conteudo) {
   limpar(raiz); shell = null;
-  raiz.append(h('div', { class: 'acesso' }, h('header', { class: 'cab-acesso' }, logo(), h('div', {}, h('h2', {}, 'Gestão Financeira'), h('p', {}, 'Cartões, pix/débito e o acerto do mês do casal'))), conteudo,
+  raiz.append(h('div', { class: 'acesso' }, h('header', { class: 'cab-acesso' }, logo(), h('div', {}, h('h2', {}, 'Gestão Financeira'), h('p', {}, 'Contas a dois, sem complicação'))), conteudo,
     h('footer', { class: 'rodape-acesso' }, 'Gestão Financeira · ' + (window.APP_VERSAO || ''))));
 }
 
 // ---------- entrar ----------
-function telaLogin() {
-  const msg = h('p', { class: 'dica', role: 'status', 'aria-live': 'polite', style: { minHeight: '1.4em' } });
-  const email = h('input', { type: 'email', id: 'email', autocomplete: 'username', required: true }), senha = h('input', { type: 'password', id: 'senha', autocomplete: 'current-password', required: true });
+/* V1.2 (do SIG V6.11.2): com "Manter-me conectado", o primeiro nome e o e-mail ficam guardados no aparelho para a tela de abertura
+   dizer "Olá, Fulano!" enquanto retoma a sessão, e para o e-mail já vir preenchido se a sessão salva tiver expirado.
+   Entrar sem marcar a opção, ou clicar em Sair, apaga essas informações. */
+function lembrarAparelho(perfil, manter) {
+  try { if (manter && perfil) { localStorage.setItem('cc_ultimo_nome', primeiroNome(perfil.nome)); localStorage.setItem('cc_ultimo_email', perfil.email); } else esquecerAparelho(); } catch (_) {}
+}
+function esquecerAparelho() { try { ['cc_ultimo_nome', 'cc_ultimo_email'].forEach(k => localStorage.removeItem(k)); } catch (_) {} }
+/** Campo de senha/e-mail sem corretor nem maiúscula automática (V1.2, do SIG V6.4: o teclado do celular trocava a 1ª letra). */
+function semCorretor(inp) { ['autocapitalize', 'autocorrect'].forEach(a => inp.setAttribute(a, 'off')); inp.setAttribute('spellcheck', 'false'); inp.autocapitalize = 'none'; return inp; }
+/** "Manter-me conectado": no máximo 1 tentativa de retomada a cada 30 s (nunca entra em laço). */
+function podeRetomar() {
+  const token = lerManter(); if (!token) return null;
+  let ult = 0; try { ult = Number(sessionStorage.getItem('cc_retomada_ts') || 0); } catch (_) {}
+  return Date.now() - ult > 30000 ? token : null;
+}
+/** Retoma a sessão por trás da tela de abertura, sem mostrar o login; se não der, mostra o login com o aviso e o e-mail preenchido. */
+async function retomarSessao(token) {
+  try { sessionStorage.setItem('cc_retomada_ts', String(Date.now())); } catch (_) {}
+  if (window.SPLASH) { SPLASH.reabrir(); let n = ''; try { n = localStorage.getItem('cc_ultimo_nome') || ''; } catch (_) {} SPLASH.ola(n); SPLASH.msg('Retomando sua sess\u00e3o\u2026'); }
+  try {
+    const r = await POST('/api/auth/retomar', { token }, { semRedirecionar: true });
+    definirSessao(r.sessao); definirManter(token); estado.perfil = r.perfil; estado.dominios = null; lembrarAparelho(r.perfil, true);
+    if (window.SPLASH) SPLASH.novaTela();
+    location.hash = '#/'; return rotear();
+  } catch (er) {
+    if (er && er.status === 401) { definirManter(''); try { localStorage.removeItem('cc_ultimo_nome'); } catch (_) {} }   // o e-mail fica, para já vir preenchido
+    if (window.SPLASH) SPLASH.ola('');
+    telaLogin({ expirou: er && er.status === 401, erro: er && er.status !== 401 ? er.message : '' }); if (window.SPLASH) SPLASH.telaPronta();
+  }
+}
+function telaLogin(op) {
+  op = op || {};
+  const msg = h('p', { class: 'dica', role: 'status', 'aria-live': 'polite', style: { minHeight: '1.4em', overflowWrap: 'anywhere' } });
+  let ultimoEmail = ''; try { ultimoEmail = localStorage.getItem('cc_ultimo_email') || ''; } catch (_) {}
+  const email = semCorretor(h('input', { type: 'email', id: 'email', autocomplete: 'username', required: true, value: ultimoEmail })), senha = semCorretor(h('input', { type: 'password', id: 'senha', autocomplete: 'current-password', required: true }));
   const manter = h('input', { type: 'checkbox', id: 'manter', checked: true }); let ocupado = false;
   const btn = h('button', { class: 'btn', type: 'submit' }, 'Entrar'), linkCad = h('div', { style: { marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--linha)', textAlign: 'center' } }, h('p', { class: 'dica', style: { margin: '0 0 8px' } }, 'Ainda não tem conta?'), h('a', { class: 'btn sec', href: '#/cadastro', style: { width: '100%', justifyContent: 'center', padding: '12px' } }, ico('usuario'), 'Criar conta'));
   const travar = v => { ocupado = v; btn.disabled = v; };
   const depois = perfil => { estado.perfil = perfil; estado.dominios = null; msg.textContent = 'Entrando…'; location.hash = '#/'; rotear(); };
+  const mostrarSenha = h('label', { class: 'manter', style: { marginTop: '6px' } }, h('input', { type: 'checkbox', onchange: e => { senha.type = e.target.checked ? 'text' : 'password'; } }), 'Mostrar senha');
   const form = h('form', { onsubmit: async e => {
     e.preventDefault(); if (ocupado) return; travar(true); msg.textContent = 'Aguarde…';
     try { const r = await POST('/api/auth/entrar', { email: email.value, senha: senha.value, manter: manter.checked }); senha.value = '';
-      definirManter(r.token || ''); depois(r.perfil);
+      definirManter(r.token || ''); lembrarAparelho(r.perfil, manter.checked); depois(r.perfil);
     } catch (er) { msg.textContent = er.message; } finally { travar(false); } } },
-    campo('E-mail', email), campo('Senha', senha), h('label', { class: 'manter' }, manter, 'Manter-me conectado neste aparelho'), h('div', { style: { height: '12px' } }), btn);
-  paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Entrar'), h('p', { class: 'dica' }, 'Use o e-mail e a senha que você criou no cadastro.'), form, msg, linkCad,
+    campo('E-mail', email), campo('Senha', senha), mostrarSenha, h('label', { class: 'manter' }, manter, 'Manter-me conectado neste aparelho'), h('div', { style: { height: '12px' } }), btn);
+  paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Entrar'),
+    op.expirou ? h('div', { class: 'aviso atencao', role: 'alert' }, ico('alerta'), ' Sua sessão neste aparelho expirou (senha trocada ou muito tempo sem usar). Entre de novo.') : null,
+    op.erro ? h('div', { class: 'aviso erro', role: 'alert' }, 'Não foi possível retomar sua sessão: ' + op.erro) : null,
+    h('p', { class: 'dica' }, 'Use o e-mail e a senha que você criou no cadastro.'), form, msg, linkCad,
     h('p', { class: 'dica', style: { textAlign: 'center' } }, 'Esqueceu a senha? Peça para a outra pessoa redefinir em “Minha conta”.')));
+  if (ultimoEmail) setTimeout(() => { try { senha.focus(); } catch (_) {} }, 50);
   // quando as duas contas já existem, troca o botão por um aviso (o cadastro fecha sozinho)
   GET('/api/config', { semRedirecionar: true }).then(cfg => { if (cfg.cadastro_aberto === false) limpar(linkCad).append(h('p', { class: 'dica', style: { margin: 0 } }, 'As duas contas do casal já foram criadas.')); }).catch(() => {});
-  // "manter-me conectado": retomada automática (no máximo 1 tentativa a cada 30 s, para nunca entrar em laço)
-  const token = lerManter();
-  if (token) { let ult = 0; try { ult = Number(sessionStorage.getItem('cc_retomada_ts') || 0); sessionStorage.setItem('cc_retomada_ts', String(Date.now())); } catch (_) {}
-    if (Date.now() - ult > 30000) { travar(true); msg.textContent = 'Retomando sua sessão…'; POST('/api/auth/retomar', { token }, { semRedirecionar: true }).then(r => depois(r.perfil)).catch(er => { travar(false); msg.textContent = er.message; definirManter(''); }); } }
 }
 // ---------- criar conta ----------
 async function telaCadastro() {
-  const nome = h('input', { type: 'text', required: true, maxlength: 80, autocomplete: 'name', placeholder: 'Como você quer aparecer no app' }), email = h('input', { type: 'email', required: true, autocomplete: 'email' });
-  const s1 = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' }), s2 = h('input', { type: 'password', autocomplete: 'new-password' });
+  const nome = h('input', { type: 'text', required: true, maxlength: 80, autocomplete: 'name', placeholder: 'Como você quer aparecer no app' }), email = semCorretor(h('input', { type: 'email', required: true, autocomplete: 'email' }));
+  const s1 = semCorretor(h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres, com letras e números' })), s2 = semCorretor(h('input', { type: 'password', autocomplete: 'new-password' }));
   const resultado = h('div'), btn = h('button', { class: 'btn', type: 'submit' }, 'Criar conta');
   let aberto = true; try { aberto = (await GET('/api/config', { semRedirecionar: true })).cadastro_aberto; } catch (_) {}
   paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Criar conta'),
@@ -2173,15 +2380,24 @@ async function telaCadastro() {
 // ---------- shell autenticado ----------
 function desenharShell() {
   const p = estado.perfil; limpar(raiz);
+  // V1.2 (do SIG V6.11): no computador, o menu recolhe para só os ícones; a escolha fica guardada no aparelho
+  try { document.body.classList.toggle('nav-mini', localStorage.getItem('cc_nav_mini') === '1'); } catch (_) {}
+  const recolher = h('button', { type: 'button', class: 'recolher-nav', 'aria-label': 'Recolher o menu', title: 'Recolher o menu (só ícones)', onclick: () => {
+    const mini = document.body.classList.toggle('nav-mini'); try { localStorage.setItem('cc_nav_mini', mini ? '1' : '0'); } catch (_) {}
+    recolher.title = mini ? 'Expandir o menu' : 'Recolher o menu (só ícones)'; recolher.setAttribute('aria-label', recolher.title); } }, ico('recolher'), h('span', { class: 'rot' }, 'Recolher menu'));
+  if (document.body.classList.contains('nav-mini')) { recolher.title = 'Expandir o menu'; recolher.setAttribute('aria-label', 'Expandir o menu'); }
   const grupos = {}; Object.entries(ROTAS).forEach(([k, r]) => { (grupos[r.grupo] = grupos[r.grupo] || []).push([k, r]); });
   const nav = h('aside', { class: 'nav', id: 'nav' }, h('a', { class: 'marca', href: '#/' }, logo(), h('div', {}, h('b', {}, 'Gestão Financeira'), h('small', {}, p.parceiro ? p.parceiro.apelido + ' & ' + p.apelido : 'Controle do casal'))),
     h('nav', { 'aria-label': 'Menu principal' }, Object.entries(grupos).map(([g, itens]) => [h('div', { class: 'grupo' }, g),
-      itens.map(([k, r]) => h('a', { class: 'item', href: '#/' + k, 'data-rota': k, onclick: () => fecharMenu() }, bloco(r.icone, r.cor), h('span', { class: 'rot' }, r.titulo)))])),
+      itens.map(([k, r]) => h('a', { class: 'item', href: '#/' + k, 'data-rota': k, title: r.titulo, onclick: () => fecharMenu() }, bloco(r.icone, r.cor), h('span', { class: 'rot' }, r.titulo), h('span', { class: 'selo oculto', 'aria-label': 'avisos' })))])),
+    recolher,
     h('div', { class: 'eu', title: p.email }, h('div', { class: 'avatar', style: { background: 'var(--pessoa-a)' } }, iniciais(p.nome)), h('div', {}, h('b', {}, p.nome), h('span', {}, p.email))));
   const trilha = h('div', { class: 'trilha' }), conteudo = h('div', { class: 'conteudo', id: 'conteudo' });
-  const depoisDeLancar = () => { if (rotaAtual) rotear(); };
-  const sair = h('button', { class: 'btn sec mini sair', type: 'button', title: 'Sair', onclick: async () => { const t = lerManter(); definirManter(''); try { await POST('/api/auth/sair', { token: t }); } catch (_) {} definirSessao(''); estado.perfil = null; estado.dominios = null; location.hash = '#/login'; rotear(); } }, ico('sair'), h('span', { class: 'txt' }, 'Sair'));
+  const sino = montarSino();
+  const depoisDeLancar = () => { if (rotaAtual) rotear(); atualizarAvisos(true); };
+  const sair = h('button', { class: 'btn sec mini sair', type: 'button', title: 'Sair', onclick: async () => { const t = lerManter(); definirManter(''); esquecerAparelho(); try { await POST('/api/auth/sair', { token: t }); } catch (_) {} definirSessao(''); estado.perfil = null; estado.dominios = null; location.hash = '#/login'; rotear(); } }, ico('sair'), h('span', { class: 'txt' }, 'Sair'));
   const main = h('div', { class: 'principal' }, h('div', { class: 'topo' }, h('button', { class: 'btn sec mini menu-btn', type: 'button', 'aria-label': 'Abrir menu', onclick: () => abrirMenu() }, ico('menu')), trilha,
+      sino.el,
       h('button', { class: 'btn mini pix', type: 'button', title: 'Novo gasto no pix/débito', onclick: () => __m_pages_gastos.formGasto(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Pix')),
       h('button', { class: 'btn mini', type: 'button', title: 'Nova compra no cartão', onclick: () => __m_pages_faturas.formCompra(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Cartão')), sair),
     conteudo, h('footer', { class: 'rodape' }, 'Gestão Financeira ' + (window.APP_VERSAO || '')));
@@ -2189,37 +2405,175 @@ function desenharShell() {
   const ABAS = ['resumo', 'acerto', 'faturas', 'gastos'];
   const veu = h('div', { class: 'veu-menu', onclick: () => fecharMenu() });
   const abas = h('nav', { class: 'abas-ios', 'aria-label': 'Atalhos' },
-    ABAS.map(k => h('a', { class: 'aba', href: '#/' + k, 'data-rota': k }, ico(ROTAS[k].icone), h('span', {}, k === 'faturas' ? 'Cartões' : k === 'gastos' ? 'Pix' : k === 'acerto' ? 'Acerto' : ROTAS[k].titulo))),
+    ABAS.map(k => h('a', { class: 'aba', href: '#/' + k, 'data-rota': k }, h('span', { class: 'aba-ico' }, ico(ROTAS[k].icone), h('span', { class: 'selo oculto' })), h('span', {}, k === 'faturas' ? 'Cartões' : k === 'gastos' ? 'Pix' : k === 'acerto' ? 'Acerto' : ROTAS[k].titulo))),
     h('button', { class: 'aba', type: 'button', 'data-rota': '__mais', onclick: () => abrirMenu() }, ico('menu'), h('span', {}, 'Mais')));
-  raiz.append(h('div', { class: 'app' }, nav, main), veu, abas); shell = { nav, trilha, conteudo, abas, veu };
+  raiz.append(h('div', { class: 'app' }, nav, main), veu, abas); shell = { nav, trilha, conteudo, abas, veu, sino, aoTrocarTela: () => { sino.fechar(); atualizarAvisos(false); } };
+  avisosEm = 0; atualizarAvisos(true);
+}
+/* V1.2 (do SIG V6.5/V6.6): sino de avisos no topo + selos no menu — faturas vencendo ou vencidas, gastos fixos do pix/débito,
+   limites passando de 80% e o acerto pendente. Os mesmos lembretes do e-mail, mas na hora e sem depender dele. */
+let avisosEm = 0, avisosPend = null;
+function atualizarAvisos(forcar) {
+  if (!shell || !estado.perfil) return;
+  if (!forcar && Date.now() - avisosEm < 60000) return;   // no máximo 1 consulta por minuto ao trocar de tela
+  avisosEm = Date.now(); const sh = shell;
+  if (avisosPend) return; avisosPend = GET('/api/avisos/hoje', { semRedirecionar: true }).then(r => { if (shell === sh) sh.sino.mostrar(r); }).catch(() => {}).finally(() => { avisosPend = null; });
+}
+function montarSino() {
+  let dados = { itens: [], selos: {}, novidades: [], nao_lidas: 0 }, aberto = false, avisouToast = false;
+  const bolha = h('span', { class: 'sino-bolha oculto' }), lista = h('div', { class: 'sino-lista', role: 'dialog', 'aria-label': 'Avisos e novidades' });
+  const btn = h('button', { class: 'btn sec mini sino', type: 'button', title: 'Avisos', 'aria-label': 'Avisos', 'aria-expanded': 'false', 'data-sem-trava': '1', onclick: ev => { ev.stopPropagation(); aberto ? fechar() : abrir(); } }, ico('sino'), bolha);
+  const el = h('div', { class: 'sino-caixa' }, btn, lista);
+  const fora = ev => { if (!el.contains(ev.target)) fechar(); };
+  const tecla = ev => { if (ev.key === 'Escape') fechar(); };
+  const quando = s => { if (!s) return ''; const d = new Date(s), min = Math.round((Date.now() - d) / 60000); if (isNaN(d)) return ''; if (min < 1) return 'agora'; if (min < 60) return 'há ' + min + ' min'; if (min < 1440) return 'há ' + Math.round(min / 60) + ' h';
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Recife', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  const irPara = x => { fechar(); if (x.query && x.query.mes) estado.mes = x.query.mes; ir(x.rota, x.query); };
+  function desenhar() {
+    const nov = dados.novidades || [], n = dados.itens.length;
+    limpar(lista);
+    // V1.3: novidades do(a) parceiro(a) — compras e pix/débito divididos lançados, alterados ou excluídos
+    if (nov.length) {
+      lista.append(h('div', { class: 'sino-cab' }, h('b', {}, 'Novidades' + (estado.perfil && estado.perfil.parceiro ? ' de ' + estado.perfil.parceiro.apelido : '')), h('span', { class: 'dica' }, dados.nao_lidas ? dados.nao_lidas + (dados.nao_lidas === 1 ? ' nova' : ' novas') : '')));
+      nov.slice(0, 15).forEach(x => lista.append(h('button', { type: 'button', class: 'sino-item novidade' + (x.lida ? ' lida' : ''), onclick: () => irPara(x) },
+        h('span', { class: 'sino-ponto' }), h('span', {}, h('b', {}, x.titulo), h('span', { class: 'dica' }, x.texto), h('span', { class: 'sino-quando' }, quando(x.criado_em))))));
+    }
+    lista.append(h('div', { class: 'sino-cab' + (nov.length ? ' sep' : '') }, h('b', {}, 'Avisos'), h('span', { class: 'dica' }, n ? n + (n === 1 ? ' aviso' : ' avisos') : '')));
+    if (!n) { lista.append(h('p', { class: 'dica', style: { padding: '6px 14px 14px', margin: 0 } }, 'Tudo em dia: nenhuma fatura vencendo, nenhum limite estourado e nenhum acerto pendente.')); return; }
+    dados.itens.forEach(x => lista.append(h('button', { type: 'button', class: 'sino-item ' + x.tipo + ' ' + x.nivel, onclick: () => irPara(x) },
+      h('span', { class: 'sino-ponto' }), h('span', {}, h('b', {}, x.titulo), h('span', { class: 'dica' }, x.texto)))));
+  }
+  function abrir() {
+    aberto = true; desenhar(); el.classList.add('aberto'); btn.setAttribute('aria-expanded', 'true'); setTimeout(() => { document.addEventListener('click', fora); document.addEventListener('keydown', tecla); }, 0);
+    // abriu o sino: as novidades passam a "vistas" (o ponto some na próxima vez; a lista continua lá)
+    const ids = (dados.novidades || []).filter(x => !x.lida).map(x => x.id);
+    if (ids.length) POST('/api/notificacoes/lidas', { ids }, { semRedirecionar: true, silencioso: true }).then(r => { dados.novidades.forEach(x => { if (ids.includes(x.id)) x.lida = true; }); dados.nao_lidas = r.nao_lidas; pintar(); }).catch(() => {});
+  }
+  function fechar() { if (!aberto) return; aberto = false; el.classList.remove('aberto'); btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', fora); document.removeEventListener('keydown', tecla); if (dados.novidades) desenhar(); }
+  function pintar() {
+    const n = dados.itens.length + (dados.nao_lidas || 0), altos = dados.itens.filter(x => x.nivel === 'alto').length;
+    bolha.textContent = n > 9 ? '9+' : String(n); bolha.classList.toggle('oculto', !n); bolha.classList.toggle('alto', altos > 0); bolha.classList.toggle('novidade', !altos && dados.nao_lidas > 0);
+    btn.title = (dados.nao_lidas ? dados.nao_lidas + (dados.nao_lidas === 1 ? ' novidade · ' : ' novidades · ') : '') + (dados.itens.length ? dados.itens.length + (dados.itens.length === 1 ? ' aviso' : ' avisos') : 'nenhum aviso');
+  }
+  function mostrar(r) {
+    const antes = dados.nao_lidas || 0;
+    dados = r || dados; pintar();
+    if (shell) [...shell.nav.querySelectorAll('a.item'), ...shell.abas.querySelectorAll('a.aba')].forEach(a => { const s = a.querySelector('.selo'), k = dados.selos[a.dataset.rota] || 0; if (!s) return; s.textContent = k > 9 ? '9+' : String(k); s.classList.toggle('oculto', !k); });
+    // ao entrar (ou quando chega algo novo com o app aberto), um aviso rápido
+    const nl = dados.nao_lidas || 0, primeira = (dados.novidades || []).find(x => !x.lida);
+    if (primeira && (!avisouToast || nl > antes)) toast(nl === 1 ? primeira.titulo + ' — veja no sino.' : nl + ' novidades de ' + ((estado.perfil && estado.perfil.parceiro && estado.perfil.parceiro.apelido) || 'parceiro(a)') + ' — veja no sino.');
+    avisouToast = true;
+    if (aberto) desenhar();
+  }
+  return { el, mostrar, fechar };
+}
+// V1.3: com o app aberto, procura novidades a cada 3 minutos (só com a aba visível) e ao voltar para a aba
+setInterval(() => { if (document.visibilityState === 'visible') atualizarAvisos(false); }, 180000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') atualizarAvisos(false); });
+/* V1.2 (do SIG V6.11.3): tela de carregamento entre as telas — ícone da tela de destino, "Abrindo …", uma frase sobre dinheiro
+   a dois e barra de progresso. Só aparece se a tela demorar mais de 0,3 s; quando aparece, fica ao menos 0,5 s; some quando a
+   tela está pronta (com os dados). Frases: lista FRASES_CARREGANDO (fácil de trocar). */
+const FRASES_CARREGANDO = [
+  'Dinheiro organizado é menos discussão e mais planos juntos.',
+  'Quem anota, enxerga. Quem enxerga, escolhe melhor.',
+  'Pequenas economias de todo dia viram a viagem do fim do ano.',
+  'Combinado não sai caro: dividir certo é cuidar da relação.',
+  'Uma reserva de emergência é tranquilidade guardada.',
+  'Parcela pequena hoje é fatura cheia amanhã. Vale olhar o mês que vem.',
+  'Meta com prazo e valor sai do sonho e entra no calendário.',
+  'O acerto do mês em dia evita a conta “eu acho que te devo”.',
+  'Gasto fixo esquecido é o que mais pesa no fim do ano.',
+  'Olhar a fatura antes de pagar é o jeito mais simples de achar erro.',
+  'Limite por categoria não é proibição: é aviso antes da surpresa.',
+  'Juntos, os pequenos valores contam uma grande história.',
+  'Planejar não é deixar de viver: é escolher onde o dinheiro faz mais diferença.',
+  'Cada real com destino é um real que não some.',
+  'Revisar assinaturas uma vez por ano já paga um jantar a dois.',
+  'Guardar primeiro e gastar depois muda o fim do mês.',
+  'Saber quanto sobra é o primeiro passo para fazer sobrar mais.',
+  'O melhor investimento do casal é conversar sobre dinheiro sem medo.',
+  'Estorno lançado é dinheiro que volta para a conta certa.',
+  'Contas claras, amizade longa — e casamento também.',
+  'Um mês difícil não define o ano: o hábito, sim.',
+  'Quem divide as contas também divide as conquistas.',
+  'Antes de comprar parcelado, olhe quanto já está comprometido.',
+  'Ganhou um extra? Uma parte para a meta, uma parte para comemorar.',
+  'Organização financeira é carinho com o seu eu do futuro.'
+];
+let sacoFrases = [];
+function proximaFrase() { if (!sacoFrases.length) sacoFrases = FRASES_CARREGANDO.map((f, i) => i).sort(() => Math.random() - 0.5); return FRASES_CARREGANDO[sacoFrases.pop()]; }
+let navTC = null;
+function iniciarTC(nome) {
+  pararTC(true);
+  const r = ROTAS[nome] || {}, fr = h('p', { class: 'tc-fr' }, proximaFrase());
+  const el = h('div', { class: 'tc', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'tc-ic' }, h('div', { class: 'tc-anel' }), h('div', { class: 'tc-tile' }, ico(r.icone || 'home'))), h('h3', {}, 'Abrindo ' + (r.titulo || 'a tela')), fr, h('div', { class: 'tc-barra' }, h('i')));
+  const nav = { el, rendeu: false, visivel: false, fim: false };
+  nav.tVis = setTimeout(() => { if (nav.fim) return; nav.visivel = true; nav.desde = Date.now(); el.classList.add('vis'); }, 300);
+  nav.tFr = setInterval(() => { fr.classList.add('troca'); setTimeout(() => { fr.textContent = proximaFrase(); fr.classList.remove('troca'); }, 300); }, 2600);
+  shell.conteudo.classList.add('tc-oculto'); el.style.top = shell.conteudo.offsetTop + 'px'; shell.conteudo.parentElement.append(el);
+  navTC = nav; return nav;
+}
+function pararTC(ja) {
+  const nav = navTC; if (!nav || nav.fim) return; nav.fim = true; clearTimeout(nav.tVis); clearInterval(nav.tFr); navTC = null;
+  const mostrar = () => { if (shell && !navTC) shell.conteudo.classList.remove('tc-oculto'); };
+  if (ja || !nav.visivel) { nav.el.remove(); mostrar(); return; }
+  setTimeout(() => { nav.el.classList.add('saindo'); setTimeout(() => { nav.el.remove(); mostrar(); }, 200); }, Math.max(0, 500 - (Date.now() - nav.desde)));   // primeiro sai o carregamento, depois entra a tela
 }
 function abrirMenu() { if (!shell) return; shell.nav.classList.add('aberto'); shell.veu.classList.add('aberto'); }
 function fecharMenu() { if (!shell) return; shell.nav.classList.remove('aberto'); shell.veu.classList.remove('aberto'); }
 function rotear() { return rotearInterno().catch(erroFatal); }
-function erroFatal(e) { console.error(e); try { toast('Erro: ' + ((e && e.message) || e), true); } catch (_) {} }
+/** V1.2 (do SIG): erro ao abrir o app (sem internet, servidor fora) mostra o motivo e "Tentar novamente", em vez de uma tela vazia. */
+function erroFatal(e) {
+  if (window.SPLASH) SPLASH.fim(); pararTC(true); console.error(e);
+  if (shell || raiz.querySelector('form')) { try { toast('Erro: ' + ((e && e.message) || e), true); } catch (_) {} return; }
+  limpar(raiz).append(h('div', { class: 'aviso erro', style: { margin: '40px auto', maxWidth: '560px' } }, h('b', {}, 'Não foi possível abrir o app. '), (e && e.message) || String(e),
+    h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => location.reload() }, 'Tentar novamente'))));
+}
 async function rotearInterno() {
   const { nome, query } = rotaDoHash();
-  if (!estado.perfil) { try { const r = await GET('/api/eu', { semRedirecionar: true }); estado.perfil = r.perfil; } catch (_) {} }
-  // sem sessão nesta aba, mas com "manter-me conectado": entra direto, antes de mostrar a tela de login
-  if (!estado.perfil && lerManter() && nome !== 'cadastro') { limpar(raiz).append(h('p', { class: 'carregando' }, 'Entrando…')); try { await retomarSilencioso(); } catch (_) {} }
-  if (!estado.perfil) { if (!PUBLICAS.includes(nome)) { location.hash = '#/login'; return; } return nome === 'cadastro' ? telaCadastro() : telaLogin(); }
+  if (!estado.perfil) {
+    if (window.SPLASH) SPLASH.msg('Verificando seu acesso…');
+    try { const r = await GET('/api/eu', { semRedirecionar: true }); estado.perfil = r.perfil; }
+    catch (e) { if (e && e.status === 0 && !PUBLICAS.includes(nome)) throw e; }   // falha de comunicação: mostra o motivo e o que fazer
+  }
+  if (!estado.perfil) {
+    if (!PUBLICAS.includes(nome)) { location.hash = '#/login'; return; }
+    // sem sessão nesta aba, mas com "manter-me conectado": entra direto, por trás da tela de abertura (sem mostrar o login)
+    if (nome !== 'cadastro') { const tk = podeRetomar(); if (tk) return retomarSessao(tk); }
+    const tela = nome === 'cadastro' ? telaCadastro() : telaLogin(); if (window.SPLASH) SPLASH.telaPronta(); return tela;
+  }
+  if (PUBLICAS.includes(nome)) { location.hash = '#/'; return; }
   if (!nome || !ROTAS[nome]) { if (nome !== 'resumo') { location.hash = '#/resumo'; return; } }
+  if (window.SPLASH && SPLASH.ativa()) SPLASH.msg(nome === 'resumo' ? 'Carregando o seu mês…' : 'Abrindo ' + ((ROTAS[nome] || {}).titulo || 'o app') + '…');
   if (!shell) desenharShell();
   const r = ROTAS[nome]; rotaAtual = nome;
+  document.querySelectorAll('.modal-fundo').forEach(m => m.remove());   // V1.2: trocou de tela (menu ou "voltar"): nenhuma janela fica aberta por cima
   shell.nav.querySelectorAll('a.item').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nome)); fecharMenu();
   shell.abas.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nome || (a.dataset.rota === '__mais' && !['resumo', 'acerto', 'faturas', 'gastos'].includes(nome))));
-  limpar(shell.trilha).append(h('span', { class: 'trilha-app' }, 'Gestão Financeira › '), h('b', {}, r.titulo)); document.title = r.titulo + ' · Gestão Financeira';
-  limpar(shell.conteudo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+  if (shell.aoTrocarTela) shell.aoTrocarTela(nome);
+  limpar(shell.trilha).append(h('span', { class: 'trilha-app' }, r.grupo + ' › '), h('b', {}, r.titulo)); document.title = r.titulo + ' · Gestão Financeira';
+  limpar(shell.conteudo); const navT = iniciarTC(nome);
   try {
     const dom = await carregarDominios(); if (rotaAtual !== nome) return;
     await r.mod().render(limpar(shell.conteudo), { query, perfil: estado.perfil, dom, ir });
   } catch (e) { if (rotaAtual !== nome) return; limpar(shell.conteudo).append(h('div', { class: 'aviso erro' }, 'Não foi possível abrir esta tela: ' + (e.message || e))); console.error(e); }
+  if (navT === navTC) pararTC(false);
+  if (window.SPLASH && rotaAtual === nome) SPLASH.telaPronta();
   window.scrollTo(0, 0);
 }
-definirAoExpirar(() => { toast('Sua sessão expirou. Entre novamente.', true); shell = null; location.hash = '#/login'; rotear(); });
+definirAoExpirar(() => {
+  shell = null;
+  const tk = podeRetomar(); if (tk) { retomarSessao(tk); return; }   // V1.2: sessão venceu com o app aberto e "manter conectado": volta a tela de abertura e retoma
+  toast('Sua sessão expirou. Entre novamente.', true); location.hash = '#/login'; // site do GitHub Pages ainda sem o link do Apps Script: explica o que falta em vez de mostrar um erro
+if (window.SITE_ESTATICO && !window.API_URL) { paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Falta um passo'),
+  h('p', {}, 'Abra o arquivo config.js no GitHub e cole o link do App da Web (o que termina em /exec). Depois de salvar, aguarde 1 minuto e recarregue esta página.'))); if (window.SPLASH) SPLASH.fim(); }
+else rotear();
+});
+// V1.2 (do SIG V6.11): ao abrir o app, começa sempre no Início; só links com detalhe (ex.: #/faturas?cartao=…) abrem direto
+{ const hz = rotaDoHash(); if (hz.nome && !PUBLICAS.includes(hz.nome) && !Object.keys(hz.query).length) { try { history.replaceState(null, '', location.pathname + location.search + '#/'); } catch (_) { location.hash = '#/'; } } }
 // site do GitHub Pages ainda sem o link do Apps Script: explica o que falta em vez de mostrar um erro
-if (window.SITE_ESTATICO && !window.API_URL) paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Falta um passo'),
-  h('p', {}, 'Abra o arquivo config.js no GitHub e cole o link do App da Web (o que termina em /exec). Depois de salvar, aguarde 1 minuto e recarregue esta página.')));
+if (window.SITE_ESTATICO && !window.API_URL) { paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Falta um passo'),
+  h('p', {}, 'Abra o arquivo config.js no GitHub e cole o link do App da Web (o que termina em /exec). Depois de salvar, aguarde 1 minuto e recarregue esta página.'))); if (window.SPLASH) SPLASH.fim(); }
 else rotear();
 return { ir };
 })();

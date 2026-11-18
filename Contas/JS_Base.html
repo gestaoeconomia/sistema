@@ -3,7 +3,8 @@ window.__erros = []; window.addEventListener('error', function (e) {
   try {
     var det = (e.message || 'erro') + ' (linha ' + e.lineno + ', coluna ' + (e.colno || 0) + ')';
     window.__erros.push(det); var a = document.getElementById('app');
-    if (a && a.querySelector('.carregando')) { var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;color:#a00;font:12px monospace;padding:16px;max-width:900px;margin:20px auto;background:#fff3f0'; pre.textContent = 'Falha ao iniciar a tela:\n' + det; a.innerHTML = ''; a.appendChild(pre); }
+    // V1.2: com a tela de abertura, o #app começa vazio — erro antes da 1ª tela tira a abertura e mostra o motivo
+    if (a && (a.querySelector('.carregando') || (!a.firstChild && window.SPLASH && SPLASH.ativa()))) { if (window.SPLASH) SPLASH.fim(); var pre = document.createElement('pre'); pre.style.cssText = 'white-space:pre-wrap;color:#a00;font:12px monospace;padding:16px;max-width:900px;margin:20px auto;background:#fff3f0'; pre.textContent = 'Falha ao iniciar a tela:\n' + det; a.innerHTML = ''; a.appendChild(pre); }
   } catch (_) {}
 });
 </script>
@@ -60,6 +61,8 @@ function mascararMoeda(el) {
   try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { /* alguns tipos não aceitam */ }
 }
 document.addEventListener('input', ev => { const el = ev.target; if (el && el.matches && el.matches('input[inputmode=decimal]:not([data-livre])')) mascararMoeda(el); }, true);
+// V1.2 (do SIG V6.8): o calendário dos campos de data só oferece datas possíveis (2010 a 2100) — o servidor também confere
+document.addEventListener('focusin', ev => { const el = ev.target; if (el && el.tagName === 'INPUT' && (el.type === 'date' || el.type === 'month')) { const d = el.type === 'date'; if (!el.min) el.min = d ? '2010-01-01' : '2010-01'; if (!el.max) el.max = d ? '2100-12-31' : '2100-12'; } }, true);
 const valorEdicao = n => n == null || n === '' ? '' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ICONES = {
@@ -88,6 +91,9 @@ const ICONES = {
   escudo: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
   livro: 'M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5M8 7h7',
   arquivo: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h6',
+  sino: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
+  recolher: 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
+  lupa: 'M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3',
 };
 function ico(nome, extra) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true');
@@ -193,7 +199,7 @@ function mostrarIndicador(mais) {
 }
 const emAndamento = new Map();
 function api(metodo, url, corpo, opcoes = {}) {
-  if (metodo === 'GET') return apiBase(metodo, url, corpo, opcoes);
+  if (metodo === 'GET' || opcoes.silencioso) return apiBase(metodo, url, corpo, opcoes);   // silencioso (V1.3): gravação de fundo, sem "Processando…"
   const chave = metodo + ' ' + url + ' ' + JSON.stringify(corpo === undefined ? null : corpo) + ' ' + (opcoes.raw ? opcoes.raw.length + ':' + opcoes.raw.slice(0, 64) : '');
   if (emAndamento.has(chave)) return emAndamento.get(chave); // clique duplo que escapou: não grava duas vezes
   const recente = Date.now() - ultimoClique.t < 3000 ? ultimoClique.el : null, liberar = ocupar(recente); mostrarIndicador(1);
@@ -210,17 +216,31 @@ async function apiBase(metodo, url, corpo, opcoes = {}) {
   return opcoes.bruto ? r : r.d;
 }
 const GET = (u, o) => api('GET', u, undefined, o);
-const POST = (u, b, o) => api('POST', u, b === undefined ? {} : b, o);
+const POST = (u, b, o) => api('POST', u, b === undefined ? {} : b, o || {});
 /** Lê um arquivo do computador/celular como base64 (para enviar o PDF da fatura). */
 const lerArquivoBase64 = arq => new Promise((ok, falha) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => falha(new ErroApi('Não foi possível ler o arquivo.', 0)); fr.readAsDataURL(arq); });
 const PUT = (u, b) => api('PUT', u, b);
 const DEL = u => api('DELETE', u, {});
+/* V1.2 (do SIG V6.4) — arquivos no celular. O app roda dentro de um iframe do Google; no celular o navegador só aceita baixar
+ * "no toque" da pessoa, e o arquivo chega do servidor segundos depois (o toque já "expirou": o download era bloqueado em silêncio).
+ * Agora, se o toque expirou (ou é celular), aparece "Arquivo pronto" com o botão Baixar — um toque novo, que o navegador aceita.
+ * O endereço temporário do arquivo vale 10 minutos (antes: 1 segundo, curto demais para o celular). */
+const ehCelular = () => { try { return matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); } catch (_) { return false; } };
+const toqueAtivo = () => { try { return !navigator.userActivation || navigator.userActivation.isActive; } catch (_) { return true; } };
+function salvarArquivo(blob, nome) {
+  const url = URL.createObjectURL(blob); setTimeout(() => URL.revokeObjectURL(url), 600000);
+  if (!ehCelular() && toqueAtivo()) { const a = document.createElement('a'); a.href = url; a.download = nome; document.body.append(a); a.click(); setTimeout(() => a.remove(), 2000); return; }
+  const { modal } = __m_ui, { h } = __m_util; let jan;
+  const ehPdf = /pdf/i.test(blob.type || '') || /\.pdf$/i.test(nome), fechar = () => setTimeout(() => jan && jan.fechar(), 800);
+  jan = modal({ titulo: 'Arquivo pronto', corpo: h('div', { class: 'arq-pronto' }, h('div', { class: 'arq-nome' }, nome), h('p', { class: 'dica' }, 'Toque em “Baixar” para salvar no aparelho.' + (ehPdf ? ' “Abrir” mostra o PDF numa nova aba (de lá dá para compartilhar ou imprimir).' : '')),
+    h('div', { class: 'acoes-linha' }, h('a', { class: 'btn', href: url, download: nome, onclick: fechar }, 'Baixar'), ehPdf ? h('a', { class: 'btn sec', href: url, target: '_blank', rel: 'noopener', onclick: fechar }, 'Abrir') : null)) });
+}
 async function baixar(url, nomePadrao) {
   const r = await api('GET', url, undefined, { bruto: true }); if (!r.f) throw new ErroApi('O servidor não devolveu o arquivo.', 500);
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blobDe(r.f)); a.download = r.f.nome || nomePadrao; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  salvarArquivo(blobDe(r.f), r.f.nome || nomePadrao);
 }
 async function carregarDominios(forcar) { if (!estado.dominios || forcar) estado.dominios = await GET('/api/dominios'); return estado.dominios; }
-return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
+return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, salvarArquivo, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
 })();
 </script>
 <script>/* ui */

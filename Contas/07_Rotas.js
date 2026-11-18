@@ -32,7 +32,7 @@ rota_('GET', '/api/dominios', {}, function () {
   return {
     usuarios: P.ativos().map(function (u) { return { email: u.email, nome: u.nome, apelido: P.primeiroNome(u.nome) }; }),
     cartoes: D.todos('cartoes').map(function (x) { var o = limpo_(x); o.rotulo = R.nomeCartao(x); o.titular_nome = P.nomeDe(x.titular); return o; })
-      .sort(function (a, b) { return b.ativo - a.ativo || a.rotulo.localeCompare(b.rotulo, 'pt-BR'); }),
+      .sort(function (a, b) { return b.ativo - a.ativo || ORD_PT_(a.rotulo, b.rotulo); }),
     categorias: R.categorias(), hoje: D.hojeISO(), mes_atual: U.mesAtual()
   };
 });
@@ -96,6 +96,7 @@ rota_('GET', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
 rota_('POST', '/api/compras', {}, function (c) {
   var v = R.validarCompra(c.body, null, c.perfil);
   v.id = D.proximoId('CMP', 6); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO(); D.inserir('compras', v);
+  NT.compra(c.perfil, 'novo', v, null);
   D.auditar(c.perfil.email, 'Lançou compra no cartão', 'compras', v.id, { descricao: v.descricao, valor: v.valor_total, parcelas: v.parcelas, divisao: v.divisao });
   return limpo_(v);
 });
@@ -115,7 +116,8 @@ rota_('PUT', '/api/compras/(CMP-\\d+)/divisao', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão altera esta compra.');
   if (R.DIVISOES.indexOf(c.body.divisao) < 0) throw erro_(400, 'Divisão inválida.');
-  var novo = copia_(at); novo.divisao = c.body.divisao; novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo);
+  var antes = copia_(at), novo = copia_(at); novo.divisao = c.body.divisao; novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo); // (o atualizar muda o registro em memória: "antes" guarda a cópia)
+  if (novo.divisao !== antes.divisao) NT.compra(c.perfil, 'divisao', novo, antes);
   D.auditar(c.perfil.email, 'Mudou a divisão da compra', 'compras', id, { de: at.divisao, para: novo.divisao });
   return { ok: true, divisao: novo.divisao, divisao_rotulo: R.rotuloDivisao(novo.divisao, car.titular) };
 });
@@ -133,7 +135,7 @@ rota_('GET', '/api/terceiros', {}, function (c) {
   var meus = {}; D.todos('cartoes').forEach(function (x) { if (x.titular === c.perfil.email) meus[x.id] = x; });
   var itens = D.todos('compras').filter(function (cp) { return meus[cp.cartao_id] && R.terceiroDe(cp) > 0; }).map(function (cp) {
     return { id: cp.id, descricao: cp.descricao, data_compra: cp.data_compra, cartao: R.nomeCartao(meus[cp.cartao_id]), terceiro: cp.terceiro, terceiro_valor: cp.terceiro_valor, valor_total: cp.valor_total, parcelas: cp.parcelas, recebido: cp.terceiro_recebido === 1 };
-  }).sort(function (a, b) { return (a.recebido - b.recebido) || String(b.data_compra).localeCompare(String(a.data_compra)); });
+  }).sort(function (a, b) { return (a.recebido - b.recebido) || ORD_TXT_(String(b.data_compra), String(a.data_compra)); });
   var aberto = itens.filter(function (x) { return !x.recebido; }).reduce(function (s, x) { return s + U.centavos(x.terceiro_valor); }, 0);
   return { itens: itens, a_receber: U.reais(aberto) };
 });
@@ -141,6 +143,7 @@ rota_('POST', '/api/compras/lote', {}, function (c) {
   var lista = R.validarLote(c.body, c.perfil), agora = D.agoraISO(); // valida tudo antes de gravar: ou entram todos, ou nenhum
   lista.forEach(function (v) { v.id = D.proximoId('CMP', 6); v.criado_por = c.perfil.email; v.criado_em = agora; });
   D.inserirVarios('compras', lista); // uma única escrita na planilha
+  var carL = D.porId('cartoes', c.body.cartao_id); NT.lote(c.perfil, 'compra', lista, carL ? 'fatura de ' + U.rotuloMes(String(c.body.fatura || '').slice(0, 7)) + ' do ' + R.nomeCartao(carL) : '', String(c.body.fatura || '').slice(0, 7));
   var total = lista.reduce(function (s, v) { return s + U.centavos(v.valor_total) / v.parcelas; }, 0);
   D.auditar(c.perfil.email, 'Lançou ' + lista.length + ' itens no cartão', 'compras', lista.map(function (v) { return v.id; }).join(','), { fatura: c.body.fatura, cartao: c.body.cartao_id });
   return { ok: true, n: lista.length, ids: lista.map(function (v) { return v.id; }), valor_na_fatura: U.reais(Math.round(total)) };
@@ -148,14 +151,15 @@ rota_('POST', '/api/compras/lote', {}, function (c) {
 rota_('PUT', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão altera esta compra.');
-  var v = R.validarCompra(c.body, at, c.perfil), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
+  var v = R.validarCompra(c.body, at, c.perfil), antes = copia_(at), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
   novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo);
+  if (['descricao', 'valor_total', 'parcelas', 'data_compra', 'divisao', 'primeira_fatura', 'cartao_id'].some(function (k) { return String(antes[k]) !== String(novo[k]); })) NT.compra(c.perfil, 'alterou', novo, antes);
   D.auditar(c.perfil.email, 'Alterou compra no cartão', 'compras', id, v); return limpo_(novo);
 });
 rota_('DELETE', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão exclui esta compra.');
-  D.excluir('compras', at); D.auditar(c.perfil.email, 'Excluiu compra no cartão', 'compras', id, limpo_(at)); return { ok: true };
+  D.excluir('compras', at); NT.compra(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu compra no cartão', 'compras', id, limpo_(at)); return { ok: true };
 });
 
 // ---------- pix / débito ----------
@@ -166,23 +170,24 @@ rota_('GET', '/api/gastos', {}, function (c) {
     t.total += cc; if (g.divisao !== 'INDIVIDUAL') t.compartilhado += cc; t.receber += R.parteDoOutro(cc, g.divisao);
     var o = limpo_(g); o.pago_por_nome = P.nomeDe(g.pago_por); o.divisao_rotulo = R.rotuloDivisao(g.divisao, g.pago_por); o.parte_outro = U.reais(R.parteDoOutro(cc, g.divisao)); return o;
   }).filter(function (g) { return !pessoa || g.pago_por === pessoa; })
-    .sort(function (a, b) { return String(b.data).localeCompare(String(a.data)) || String(b.criado_em).localeCompare(String(a.criado_em)); });
+    .sort(function (a, b) { return ORD_TXT_(String(b.data), String(a.data)) || ORD_TXT_(String(b.criado_em), String(a.criado_em)); });
   return { mes: mes, rotulo: U.rotuloMes(mes), itens: itens, totais: P.ativos().map(function (u) { var t = tot[u.email] || { total: 0, compartilhado: 0, receber: 0 };
     return { email: u.email, nome: u.nome, total: u.email === ve ? U.reais(t.total) : null, compartilhado: U.reais(t.compartilhado), receber: U.reais(t.receber) }; }) };
 });
 rota_('POST', '/api/gastos', {}, function (c) {
   var v = R.validarGasto(c.body); v.id = D.proximoId('GAS', 6); v.pago_por = c.perfil.email; v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
-  D.inserir('gastos', v); D.auditar(c.perfil.email, 'Lançou gasto pix/débito', 'gastos', v.id, { descricao: v.descricao, valor: v.valor, divisao: v.divisao }); return limpo_(v);
+  D.inserir('gastos', v); NT.gasto(c.perfil, 'novo', v, null); D.auditar(c.perfil.email, 'Lançou gasto pix/débito', 'gastos', v.id, { descricao: v.descricao, valor: v.valor, divisao: v.divisao }); return limpo_(v);
 });
 rota_('PUT', '/api/gastos/(GAS-\\d+)', {}, function (c, id) {
   var at = D.porId('gastos', id); if (!at) throw erro_(404, 'Gasto não encontrado.'); exigirDono_(at.pago_por, c.perfil, 'Só quem pagou altera este gasto.');
-  var v = R.validarGasto(c.body), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
+  var v = R.validarGasto(c.body), antes = copia_(at), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
   novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('gastos', novo);
+  if (['descricao', 'valor', 'data', 'divisao', 'forma'].some(function (k) { return String(antes[k]) !== String(novo[k]); })) NT.gasto(c.perfil, 'alterou', novo, antes);
   D.auditar(c.perfil.email, 'Alterou gasto pix/débito', 'gastos', id, v); return limpo_(novo);
 });
 rota_('DELETE', '/api/gastos/(GAS-\\d+)', {}, function (c, id) {
   var at = D.porId('gastos', id); if (!at) throw erro_(404, 'Gasto não encontrado.'); exigirDono_(at.pago_por, c.perfil, 'Só quem pagou exclui este gasto.');
-  D.excluir('gastos', at); D.auditar(c.perfil.email, 'Excluiu gasto pix/débito', 'gastos', id, limpo_(at)); return { ok: true };
+  D.excluir('gastos', at); NT.gasto(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu gasto pix/débito', 'gastos', id, limpo_(at)); return { ok: true };
 });
 
 // ---------- gastos fixos (recorrentes) ----------
@@ -206,7 +211,7 @@ rota_('GET', '/api/recorrentes', {}, function (c) {
   });
   var ve = c.perfil.email; lista = lista.filter(function (o) { return R.visivel(o.dono, o.divisao, ve); });
   lista.forEach(function (o) { if (o.situacao !== 'ativo') return; var t = tot[o.dono] = tot[o.dono] || { total: 0, compartilhado: 0, receber: 0 }, cc = U.centavos(o.valor); t.total += cc; if (o.divisao !== 'INDIVIDUAL') t.compartilhado += cc; t.receber += R.parteDoOutro(cc, o.divisao); });
-  lista.sort(function (a, b) { var ord = { ativo: 0, futuro: 1, encerrado: 2, alterado: 3 }; return ord[a.situacao] - ord[b.situacao] || a.descricao.localeCompare(b.descricao, 'pt-BR'); });
+  lista.sort(function (a, b) { var ord = { ativo: 0, futuro: 1, encerrado: 2, alterado: 3 }; return ord[a.situacao] - ord[b.situacao] || ORD_PT_(a.descricao, b.descricao); });
   return { mes: mes, rotulo: U.rotuloMes(mes), itens: lista, totais: P.ativos().map(function (u) { var t = tot[u.email] || { total: 0, compartilhado: 0, receber: 0 }; return { email: u.email, nome: u.nome, total: u.email === ve ? U.reais(t.total) : null, compartilhado: U.reais(t.compartilhado), receber: U.reais(t.receber) }; }) };
 });
 rota_('GET', '/api/recorrentes/(REC-\\d+)', {}, function (c, id) { var rc = D.porId('recorrentes', id); if (!rc) throw erro_(404, 'Gasto fixo não encontrado.'); exigirVisivel_(rc.dono, rc.divisao, c.perfil, 'Gasto fixo'); return recInfo_(rc, mesQuery_(c.query)); });
@@ -249,7 +254,7 @@ rota_('GET', '/api/metas', {}, function (c) { return M.listar(mesQuery_(c.query)
 rota_('GET', '/api/metas/(MET-\\d+)', {}, function (c, id) {
   var m = D.porId('metas', id); if (!m) throw erro_(404, 'Meta não encontrada.');
   var o = M.situacao(m, mesQuery_(c.query));
-  o.aportes = M.aportesDe(id).map(function (a) { var x = limpo_(a); x.quem_nome = P.nomeDe(a.quem); return x; }).sort(function (a, b) { return String(b.data).localeCompare(String(a.data)) || String(b.criado_em).localeCompare(String(a.criado_em)); });
+  o.aportes = M.aportesDe(id).map(function (a) { var x = limpo_(a); x.quem_nome = P.nomeDe(a.quem); return x; }).sort(function (a, b) { return ORD_TXT_(String(b.data), String(a.data)) || ORD_TXT_(String(b.criado_em), String(a.criado_em)); });
   return o;
 });
 rota_('POST', '/api/metas', {}, function (c) {
@@ -273,7 +278,7 @@ rota_('DELETE', '/api/metas/(MET-\\d+)', {}, function (c, id) {
 rota_('POST', '/api/metas/(MET-\\d+)/aportes', {}, function (c, id) {
   var m = D.porId('metas', id); if (!m) throw erro_(404, 'Meta não encontrada.');
   var cc = U.centavos(c.body.valor); if (isNaN(cc) || cc === 0 || Math.abs(cc) > 1e11) throw erro_(400, 'Informe o valor guardado (para retirada, use valor negativo).');
-  var data = String(c.body.data || D.hojeISO()); if (!U.dataValida(data)) throw erro_(400, 'Data inválida.');
+  var data = String(c.body.data || D.hojeISO()); if (!U.dataValida(data)) throw erro_(400, U.motivoData(data, 'Data'));
   var quem = c.body.quem || c.perfil.email; if (!P.ativos().some(function (u) { return u.email === quem; })) throw erro_(400, 'Pessoa inválida.');
   var v = { id: D.proximoId('APO', 6), meta_id: id, data: data, valor: U.reais(cc), quem: quem, obs: U.texto(c.body.obs, 200), criado_por: c.perfil.email, criado_em: D.agoraISO() };
   D.inserir('aportes', v); D.auditar(c.perfil.email, cc > 0 ? 'Guardou na meta' : 'Retirou da meta', 'metas', id, { valor: v.valor, quem: quem }); return M.situacao(m);
@@ -320,7 +325,7 @@ rota_('POST', '/api/acertos', {}, function (c) {
   var par = P.parceiroDe(c.perfil.email); if (!par) throw erro_(400, 'Ainda não há outra pessoa cadastrada.');
   var mes = String(c.body.mes || ''); if (!U.mesValido(mes)) throw erro_(400, 'Mês inválido.');
   var cc = U.centavos(c.body.valor); if (isNaN(cc) || cc <= 0) throw erro_(400, 'Informe o valor do acerto.');
-  var data = String(c.body.data || D.hojeISO()); if (!U.dataValida(data)) throw erro_(400, 'Data inválida.');
+  var data = String(c.body.data || D.hojeISO()); if (!U.dataValida(data)) throw erro_(400, U.motivoData(data, 'Data'));
   var paguei = c.body.direcao !== 'RECEBI';
   var v = { id: D.proximoId('ACE', 5), mes: mes, de: paguei ? c.perfil.email : par.email, para: paguei ? par.email : c.perfil.email, valor: U.reais(cc), data: data, obs: U.texto(c.body.obs, 200), criado_por: c.perfil.email, criado_em: D.agoraISO() };
   D.inserir('acertos', v); D.auditar(c.perfil.email, 'Registrou acerto', 'acertos', v.id, { mes: mes, de: v.de, para: v.para, valor: v.valor }); return limpo_(v);
@@ -357,7 +362,7 @@ function podeVerAuditoria_(a, ve) {
 rota_('GET', '/api/exportar\\.csv', { escreve: true }, function (c) {
   var ve = c.perfil.email, mes = mesQuery_(c.query), ac = R.acerto(mes), idx = R.indice(), linhas = [['Origem', 'Data', 'Descrição', 'Categoria', 'Cartão / forma', 'Parcela', 'Pago por', 'Divisão', 'Valor (R$)', 'Parte do outro (R$)', 'Sua parte (R$)', 'Terceiro paga']];
   var fmt = function (v) { return String(v).replace('.', ','); };
-  (idx[mes] || []).filter(function (it) { return R.visivel(it.pagador, it.divisao, ve); }).sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); }).forEach(function (it) {
+  (idx[mes] || []).filter(function (it) { return R.visivel(it.pagador, it.divisao, ve); }).sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)); }).forEach(function (it) {
     linhas.push([it.origem === 'CARTAO' ? 'Cartão' : 'Pix/débito', it.data, it.descricao, it.categoria, it.cartao || it.forma, it.parcela || '', P.nomeDe(it.pagador), R.rotuloDivisao(it.divisao, it.pagador), fmt(U.reais(it.c)), fmt(U.reais(R.parteDoOutro(R.efetivo(it), it.divisao))), fmt(U.reais(R.minhaParte(it, ve))), it.t ? it.terceiro + ' paga ' + fmt(U.reais(it.t)) : '']);
   });
   linhas.push([]); linhas.push(['Resultado', ac.devedor ? ac.devedor.nome + ' deve a ' + ac.credor.nome : 'Sem saldo', '', '', '', '', '', '', fmt(ac.devido), '', '', '']);
@@ -387,6 +392,7 @@ rota_('GET', '/api/evolucao', {}, function (c) { return { meses: PN.evolucao(mes
 rota_('GET', '/api/metas/reserva', {}, function (c) { return PN.reservaSugerida(mesQuery_(c.query)); });
 
 // ---------- avisos por e-mail ----------
+rota_('GET', '/api/avisos/hoje', {}, function (c) { var r = AV.itensApp(c.perfil.email); r.novidades = NT.listar(c.perfil.email, 30); r.nao_lidas = NT.naoLidas(c.perfil.email); return r; }); // V1.2: sino de avisos e selos do menu
 rota_('GET', '/api/avisos', {}, function (c) { return { prefs: AV.prefs(c.perfil.email), agendado: AV.acionadorAtivo(), email: c.perfil.email }; });
 rota_('PUT', '/api/avisos', {}, function (c) { var p = AV.salvarPrefs(c.perfil.email, c.body || {}); D.auditar(c.perfil.email, 'Alterou avisos por e-mail', 'config', 'avisos:' + c.perfil.email, p); return { prefs: p, agendado: AV.acionadorAtivo() }; });
 rota_('POST', '/api/avisos/teste', {}, function (c) { A.limitarFrequencia('teste_email', c.perfil.email, 3, 3600, 'Você já pediu 3 e-mails de teste nesta hora. Tente mais tarde.'); return AV.teste(c.perfil); });

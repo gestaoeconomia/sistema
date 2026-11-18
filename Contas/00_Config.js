@@ -8,7 +8,14 @@
  *  • Funções administrativas (instalar, redefinirSenha etc.) só rodam pelo editor do Apps Script (conta proprietária).
  *  • Valores em dinheiro são calculados em CENTAVOS (inteiros) e gravados na planilha com 2 casas decimais.
  */
-var APP = { TZ: 'America/Recife', TITULO: 'Gestão Financeira', VERSAO: 'V1.2 - 13/11/2026', MAX_USUARIOS: 2 };
+var APP = { TZ: 'America/Recife', TITULO: 'Gestão Financeira', VERSAO: 'V1.3 - 18/11/2026', MAX_USUARIOS: 2 };
+
+/** V1.2 (do SIG V6.3): comparação de textos em português com um Intl.Collator criado UMA vez — mesmo resultado de
+ *  a.localeCompare(b, 'pt-BR'), bem mais rápido em ordenações grandes (localeCompare com idioma monta o comparador a cada chamada). */
+var COLADOR_PT_ = new Intl.Collator('pt-BR'), COLADOR_PADRAO_ = new Intl.Collator();
+function ORD_PT_(a, b) { return COLADOR_PT_.compare(a, b); }
+/** Igual a a.localeCompare(b) (sem idioma informado). */
+function ORD_TXT_(a, b) { return COLADOR_PADRAO_.compare(a, b); }
 
 function erro_(status, msg, extra) {
   var e = new Error(msg); e.status = status;
@@ -21,10 +28,27 @@ var U = (function () {
   var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function mesValido(m) { return typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m); }
+  /**
+   * V1.2 (do SIG V6.8) — datas possíveis: AAAA-MM-DD que existe no calendário (sem 30/02) e entre 2010 e 2100.
+   * Antes de 2010 é quase sempre erro de digitação do ano (ex.: 2002 em vez de 2026).
+   */
+  var DATA_MINIMA = '2010-01-01', DATA_MAXIMA = '2100-12-31';
   function dataValida(d) {
     if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
-    var x = new Date(d + 'T12:00:00Z'); return !isNaN(x) && x.toISOString().slice(0, 10) === d;
+    var x = new Date(d + 'T12:00:00Z'); return !isNaN(x) && x.toISOString().slice(0, 10) === d && d >= DATA_MINIMA && d <= DATA_MAXIMA;
   }
+  /** Motivo de a data não ser aceita ('' se for possível). rot = nome do campo ("Data da compra"). */
+  function motivoData(d, rot) {
+    rot = rot || 'Data';
+    if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return rot + ': data inválida.';
+    var x = new Date(d + 'T12:00:00Z'); if (isNaN(x) || x.toISOString().slice(0, 10) !== d) return rot + ': esse dia não existe no calendário (' + d.split('-').reverse().join('/') + ').';
+    if (d < DATA_MINIMA) return rot + ': ano ' + d.slice(0, 4) + ' muito antigo — confira o ano digitado.';
+    if (d > DATA_MAXIMA) return rot + ': data inválida.';
+    return '';
+  }
+  /** Mês possível (AAAA-MM entre 2010-01 e 2100-12) — para meses digitados (início, fim, mês da meta). */
+  function mesPossivel(m) { return mesValido(m) && m >= DATA_MINIMA.slice(0, 7) && m <= DATA_MAXIMA.slice(0, 7); }
+  function motivoMes(m, rot) { return !mesValido(m) ? rot + ': mês inválido.' : m < DATA_MINIMA.slice(0, 7) ? rot + ': ano ' + m.slice(0, 4) + ' muito antigo — confira o ano digitado.' : m > DATA_MAXIMA.slice(0, 7) ? rot + ': mês inválido.' : ''; }
   /** Soma n meses a "AAAA-MM" (n pode ser negativo). */
   function somarMeses(mes, n) {
     var a = Number(mes.slice(0, 4)), m = Number(mes.slice(5, 7)) - 1 + n;
@@ -43,7 +67,7 @@ var U = (function () {
   }
   function reais(c) { return Math.round(c) / 100; }
   function texto(v, max) { return String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, max || 120); }
-  return { MESES: MESES, pad: pad, mesValido: mesValido, dataValida: dataValida, somarMeses: somarMeses, difMeses: difMeses, rotuloMes: rotuloMes, mesAtual: mesAtual, centavos: centavos, reais: reais, texto: texto };
+  return { MESES: MESES, pad: pad, mesValido: mesValido, dataValida: dataValida, motivoData: motivoData, mesPossivel: mesPossivel, motivoMes: motivoMes, somarMeses: somarMeses, difMeses: difMeses, rotuloMes: rotuloMes, mesAtual: mesAtual, centavos: centavos, reais: reais, texto: texto };
 })();
 
 /**
@@ -52,7 +76,7 @@ var U = (function () {
  */
 var P = (function () {
   function emailValido(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim()) && String(e).length <= 200; }
-  function ativos() { return D.todos('usuarios').filter(function (u) { return u.ativo === 1; }).sort(function (a, b) { return String(a.criado_em).localeCompare(String(b.criado_em)); }); }
+  function ativos() { return D.todos('usuarios').filter(function (u) { return u.ativo === 1; }).sort(function (a, b) { return ORD_TXT_(String(a.criado_em), String(b.criado_em)); }); }
   function nomeDe(email) { var u = D.porId('usuarios', email); return u ? u.nome : (email || ''); }
   function primeiroNome(nome) { return String(nome || '').trim().split(/\s+/)[0] || ''; }
   /** O(a) parceiro(a) de quem está logado (o outro usuário ativo), ou null se ainda não se cadastrou. */

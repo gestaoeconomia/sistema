@@ -116,9 +116,9 @@ var R = (function () {
       if (parte !== 0) itens.push({ origem: it.origem, id: it.id, recorrente: !!it.recorrente, data: it.data, descricao: it.descricao, cartao: it.cartao || '', forma: it.forma || '', parcela: it.parcela || '',
         pagador: it.pagador, pagador_nome: p.nome, divisao: it.divisao, divisao_rotulo: rotuloDivisao(it.divisao, it.pagador), valor: U.reais(it.c), terceiro: it.t ? it.terceiro : '', terceiro_parcela: U.reais(it.t || 0), parte: U.reais(parte) });
     });
-    itens.sort(function (a, b) { return String(a.data).localeCompare(String(b.data)) || a.descricao.localeCompare(b.descricao, 'pt-BR'); });
+    itens.sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)) || ORD_PT_(a.descricao, b.descricao); });
     var acertos = (acMes[mes] || []).map(function (a) { return { id: a.id, de: a.de, de_nome: P.nomeDe(a.de), para: a.para, para_nome: P.nomeDe(a.para), valor: a.valor, data: a.data, obs: a.obs || '', criado_por: a.criado_por }; })
-      .sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); });
+      .sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)); });
     var out = { mes: mes, rotulo: U.rotuloMes(mes), pessoas: pessoas.map(function (p) {
       return { email: p.email, nome: p.nome, receber: U.reais(p.receber),
         cartao: { total: U.reais(p.cartao.total), compartilhado: U.reais(p.cartao.compartilhado), receber: U.reais(p.cartao.receber) },
@@ -191,7 +191,7 @@ var R = (function () {
       itens.push({ id: rc.id, recorrente: true, data_compra: dataRec(rc, mes), descricao: rc.descricao, categoria: rc.categoria || '', parcela: 1, parcelas: 1, valor: U.reais(c), valor_total: rc.valor,
         divisao: rc.divisao, divisao_rotulo: rotuloDivisao(rc.divisao, car.titular), obs: rc.obs || '', criado_por: rc.criado_por, fim: rc.fim || '' });
     });
-    itens.sort(function (a, b) { return String(a.data_compra).localeCompare(String(b.data_compra)) || a.descricao.localeCompare(b.descricao, 'pt-BR'); });
+    itens.sort(function (a, b) { return ORD_TXT_(String(a.data_compra), String(b.data_compra)) || ORD_PT_(a.descricao, b.descricao); });
     var st = statusFatura(cartaoId, mes), proximas = [];
     for (var i = 1; i <= 6; i++) proximas.push({ mes: U.somarMeses(mes, i), rotulo: U.rotuloMes(U.somarMeses(mes, i)), total: 0 });
     D.todos('compras').forEach(function (cp) {
@@ -216,7 +216,7 @@ var R = (function () {
       var restrito = !!ve && c.titular !== ve;
       return { id: c.id, nome: nomeCartao(c), titular: c.titular, titular_nome: P.nomeDe(c.titular), ativo: c.ativo, total: U.reais(t.total), lancamentos: t.n, paga: restrito ? false : !!(st && st.paga === 1), restrito: restrito,
         vencimento: mes + '-' + U.pad(Math.min(Number(c.dia_vencimento) || 1, diasNoMes(mes))) };
-    }).sort(function (a, b) { return a.titular_nome.localeCompare(b.titular_nome, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR'); });
+    }).sort(function (a, b) { return ORD_PT_(a.titular_nome, b.titular_nome) || ORD_PT_(a.nome, b.nome); });
   }
   /** Compras parceladas que ainda têm parcelas a partir do mês informado. */
   function parcelamentos(mes, cartaoId, ve) {
@@ -226,7 +226,7 @@ var R = (function () {
       return { id: cp.id, cartao_id: cp.cartao_id, cartao: nomeCartao(car), titular: car.titular, titular_nome: P.nomeDe(car.titular), descricao: cp.descricao, data_compra: cp.data_compra,
         valor_total: cp.valor_total, parcelas: ps.length, parcela_atual: atual ? atual.n : null, valor_parcela: U.reais(ps[ps.length - 1].c), restantes: rest.length,
         valor_restante: U.reais(rest.reduce(function (s, p) { return s + p.c; }, 0)), ultima_fatura: ultimaFatura(cp), ultima_rotulo: U.rotuloMes(ultimaFatura(cp)), divisao: cp.divisao, divisao_rotulo: rotuloDivisao(cp.divisao, car.titular) };
-    }).sort(function (a, b) { return a.ultima_fatura.localeCompare(b.ultima_fatura) || a.descricao.localeCompare(b.descricao, 'pt-BR'); });
+    }).sort(function (a, b) { return ORD_TXT_(a.ultima_fatura, b.ultima_fatura) || ORD_PT_(a.descricao, b.descricao); });
   }
   /** Comprometimento das próximas faturas, por pessoa (soma de todos os cartões de cada um). */
   function projecao(mes, nMeses, ve) {
@@ -265,7 +265,7 @@ var R = (function () {
     var v = { cartao_id: car.id, descricao: U.texto(b.descricao, 120), categoria: U.texto(b.categoria, 40), obs: U.texto(b.obs, 300), data_compra: String(b.data_compra || ''),
       parcelas: parseInt(b.parcelas, 10), divisao: divisaoValida(b.divisao) };
     if (v.descricao.length < 2) throw erro_(400, 'Descreva a compra.');
-    if (!U.dataValida(v.data_compra)) throw erro_(400, 'Data da compra inválida.');
+    if (!U.dataValida(v.data_compra)) throw erro_(400, U.motivoData(v.data_compra, 'Data da compra'));
     var c = U.centavos(b.valor_total); if (isNaN(c) || c === 0 || Math.abs(c) > 1e10) throw erro_(400, 'Informe o valor total da compra.');
     v.valor_total = U.reais(c);
     if (!(v.parcelas >= 1 && v.parcelas <= MAX_PARCELAS)) throw erro_(400, 'Número de parcelas inválido (1 a ' + MAX_PARCELAS + ').');
@@ -318,7 +318,9 @@ var R = (function () {
     var c = U.centavos(g('valor')); if (isNaN(c) || c <= 0 || c > 1e10) throw erro_(400, 'Informe o valor mensal.'); v.valor = U.reais(c);
     if (!(v.dia >= 1 && v.dia <= 31)) throw erro_(400, 'Dia do mês inválido (1 a 31).');
     if (!U.mesValido(v.inicio)) throw erro_(400, 'Informe o mês em que o gasto fixo começa.');
+    if (!U.mesPossivel(v.inicio)) throw erro_(400, U.motivoMes(v.inicio, 'Primeiro mês'));
     if (v.fim && !U.mesValido(v.fim)) v.fim = '';
+    if (v.fim && !U.mesPossivel(v.fim)) throw erro_(400, U.motivoMes(v.fim, 'Último mês'));
     if (v.fim && v.fim < v.inicio) throw erro_(400, 'O último mês não pode ser antes do primeiro.');
     if (v.tipo === 'CARTAO') {
       var car = D.porId('cartoes', g('cartao_id')); if (!car) throw erro_(400, 'Escolha o cartão.');
@@ -333,7 +335,7 @@ var R = (function () {
   }
   function validarGasto(b) {
     var v = { data: String(b.data || ''), descricao: U.texto(b.descricao, 120), categoria: U.texto(b.categoria, 40), obs: U.texto(b.obs, 300), forma: String(b.forma || ''), divisao: divisaoValida(b.divisao) };
-    if (!U.dataValida(v.data)) throw erro_(400, 'Data inválida.');
+    if (!U.dataValida(v.data)) throw erro_(400, U.motivoData(v.data, 'Data do gasto'));
     if (v.descricao.length < 2) throw erro_(400, 'Descreva o gasto.');
     if (FORMAS.indexOf(v.forma) < 0) throw erro_(400, 'Escolha a forma de pagamento (pix, débito ou dinheiro).');
     var c = U.centavos(b.valor); if (isNaN(c) || c <= 0 || c > 1e10) throw erro_(400, 'Informe o valor.');
@@ -342,7 +344,7 @@ var R = (function () {
   function categorias() {
     var vistas = {}; CATEGORIAS_PADRAO.forEach(function (c) { vistas[c] = 1; });
     D.todos('compras').concat(D.todos('gastos'), D.todos('recorrentes')).forEach(function (x) { if (x.categoria) vistas[x.categoria] = 1; });
-    return Object.keys(vistas).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+    return Object.keys(vistas).sort(function (a, b) { return ORD_PT_(a, b); });
   }
 
   return { DIVISOES: DIVISOES, FORMAS: FORMAS, faturaSugerida: faturaSugerida, parcelas: parcelas, ultimaFatura: ultimaFatura, parteDoOutro: parteDoOutro, rotuloDivisao: rotuloDivisao, efetivo: efetivo, terceiroDe: terceiroDe, validarTerceiro: validarTerceiro,

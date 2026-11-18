@@ -132,7 +132,7 @@ var EXT = (function () {
     if (!brutos.length) throw erro_(422, ofx ? 'Não achei lançamentos neste OFX.' : 'Não reconheci as colunas deste CSV. O arquivo precisa ter colunas de data, descrição e valor (ou débito/crédito).', { codigo: 'FORMATO' });
     // histórico do próprio usuário: descrição → última categoria/divisão usadas
     var hist = {}, refs = {}, assinaturas = {};
-    D.todos('gastos').filter(function (g) { return g.pago_por === perfil.email; }).sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); }).forEach(function (g) {
+    D.todos('gastos').filter(function (g) { return g.pago_por === perfil.email; }).sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)); }).forEach(function (g) {
       var k = chaveDesc(g.descricao); if (k) hist[k] = { categoria: g.categoria || '', divisao: g.divisao };
       if (g.ref_externa) refs[g.ref_externa] = g.id;
       assinaturas[g.data + '|' + U.centavos(g.valor)] = (assinaturas[g.data + '|' + U.centavos(g.valor)] || []).concat([g]);
@@ -152,7 +152,7 @@ var EXT = (function () {
         marcar: !ign && !dup, aviso: ign ? ign[1] : dup ? 'Possível repetido: ' + dup.motivo : '', duplicado: dup ? dup.id : '' };
       itens.push(it);
     });
-    itens.sort(function (a, b) { return a.data.localeCompare(b.data) || a.n - b.n; });
+    itens.sort(function (a, b) { return ORD_TXT_(a.data, b.data) || a.n - b.n; });
     var datas = itens.map(function (x) { return x.data; });
     return { formato: ofx ? 'OFX' : 'CSV', arquivo: U.texto(nome, 120), itens: itens, entradas_ignoradas: entradas, de: datas[0] || '', ate: datas[datas.length - 1] || '',
       total_marcado: U.reais(itens.filter(function (x) { return x.marcar; }).reduce(function (s, x) { return s + U.centavos(x.valor); }, 0)), ignorados: ignorados };
@@ -170,7 +170,7 @@ var EXT = (function () {
       v.ref_externa = ref; v.pago_por = perfil.email; v.criado_por = perfil.email; v.criado_em = agora; if (ref) refs[ref] = 1; out.push(v);
     });
     out.forEach(function (v) { v.id = D.proximoId('GAS', 6); });
-    if (out.length) D.inserirVarios('gastos', out);
+    if (out.length) { D.inserirVarios('gastos', out); NT.lote(perfil, 'gasto', out, 'do extrato importado'); }
     D.auditar(perfil.email, 'Importou ' + out.length + ' gastos do extrato', 'gastos', out.map(function (v) { return v.id; }).join(',').slice(0, 900), { arquivo: U.texto(body.arquivo, 120), pulados: pular });
     return { ok: true, n: out.length, pulados: pular, total: U.reais(out.reduce(function (s, v) { return s + U.centavos(v.valor); }, 0)) };
   }

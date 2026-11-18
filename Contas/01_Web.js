@@ -6,22 +6,31 @@
 function include(nome) { return HtmlService.createHtmlOutputFromFile(nome).getContent(); }
 
 function doGet() {
-  var t = HtmlService.createTemplateFromFile('Index');
-  t.versao = APP.VERSAO;
+  var t = HtmlService.createTemplateFromFile('Index'); t.versao = APP.VERSAO;
   var out = t.evaluate().setTitle(APP.TITULO)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1') // o Apps Script só aceita algumas metatags aqui: não acrescente outras
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  try { var ic = urlIcone_(); if (ic) out.setFaviconUrl(ic); } catch (e) { console.warn('Ícone da aba não aplicado: ' + e.message); } // sem ícone, a página abre do mesmo jeito
-  return out;
+  return aplicarIcone_(out); // V1.3: ícone publicado e conferido sozinho (01b_Icone.js)
 }
 /**
- * Ícone da aba: link público do PNG criado no Drive por criarIcone() (ou ICONE_URL, se você preferir outro endereço).
- * O setFaviconUrl só aceita endereços que TERMINAM com o tipo da imagem ("png"); por isso o "&format=png" no fim.
+ * Endereço do App da Web sempre na forma que abre sem login do Google e com várias contas no navegador
+ * (https://script.google.com/macros/s/ID/exec — sem "/a/macros/dominio/" nem "/u/1/").
+ * URL_PUBLICA (propriedade do script, opcional) fixa o link da implantação, se o Google devolver o de outra.
  */
-function urlIcone_() {
-  var p = PropertiesService.getScriptProperties(), url = p.getProperty('ICONE_URL'), id = p.getProperty('ICONE_ID');
-  return url || (id ? 'https://drive.google.com/uc?id=' + id + '&export=download&format=png' : '');
+function urlApp_() {
+  var fixo = ''; try { fixo = String(D.props().getProperty('URL_PUBLICA') || ''); } catch (e) { fixo = ''; }
+  return fixo || urlDetectada_();
 }
+function urlDetectada_() {
+  var u = ''; try { u = String(ScriptApp.getService().getUrl() || ''); } catch (e) { return ''; }
+  return normalizarUrlApp_(u) || u;
+}
+function normalizarUrlApp_(u) {
+  var m = String(u || '').match(/\/s\/(AKfy[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{30,})\/(exec|dev)/);
+  return m ? 'https://script.google.com/macros/s/' + m[1] + '/exec' : '';
+}
+/** Link dos e-mails de aviso: o site do GitHub Pages (Minha conta ▸ Site do app), se cadastrado, ou o link do Apps Script. */
+function linkPublico_() { var x = ''; try { x = String(D.props().getProperty('URL_EXTERNA') || ''); } catch (e) { x = ''; } return x || urlApp_(); }
 
 /**
  * Mesma API, chamada por fetch a partir das telas hospedadas fora do Google (site estático — ver LEIA-ME).
@@ -78,5 +87,12 @@ function api(req) {
     if (e && e.codigo) d.codigo = e.codigo;
     if (st === 500) { try { if (PropertiesService.getScriptProperties().getProperty('DEBUG') === '1') d.erro += ' [' + String(e && e.message || e).slice(0, 300) + ']'; } catch (_) {} }
     return { s: st, d: d };
-  } finally { if (travou && lock) { try { lock.releaseLock(); } catch (_) {} } }
+  } finally {
+    if (travou && lock) {
+      // V1.2 (do SIG V6.3): confirma na planilha o que acabou de ser escrito ANTES de liberar a vez — sem isso a próxima
+      // gravação podia calcular a "próxima linha livre" antes de a linha anterior aparecer
+      try { SpreadsheetApp.flush(); } catch (_) {}
+      try { lock.releaseLock(); } catch (_) {}
+    }
+  }
 }

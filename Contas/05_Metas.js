@@ -64,7 +64,7 @@ var M = (function () {
   }
   function listar(mesRef) {
     var lista = D.todos('metas').map(function (m) { return situacao(m, mesRef); });
-    lista.sort(function (a, b) { return (b.ativa - a.ativa) || String(a.mes_alvo).localeCompare(String(b.mes_alvo)) || a.nome.localeCompare(b.nome, 'pt-BR'); });
+    lista.sort(function (a, b) { return (b.ativa - a.ativa) || ORD_TXT_(String(a.mes_alvo), String(b.mes_alvo)) || ORD_PT_(a.nome, b.nome); });
     var ativas = lista.filter(function (x) { return x.ativa && !x.atingida; }), tot = {};
     ativas.forEach(function (x) { x.pessoas.forEach(function (p) { var t = tot[p.email] = tot[p.email] || { por_mes: 0, falta_no_mes: 0 }; t.por_mes += U.centavos(p.por_mes); t.falta_no_mes += U.centavos(p.falta_no_mes); }); });
     // ganhos: quanto do que cada um ganha vai para as metas e quanto sobra em média para guardar
@@ -87,6 +87,7 @@ var M = (function () {
     var alvo = U.centavos(g('valor_alvo')); if (isNaN(alvo) || alvo <= 0 || alvo > 1e11) throw erro_(400, 'Informe o valor da meta.'); v.valor_alvo = U.reais(alvo);
     var ini = U.centavos(g('valor_inicial') === '' || g('valor_inicial') == null ? 0 : g('valor_inicial')); if (isNaN(ini) || ini < 0) throw erro_(400, 'Valor já guardado inválido.'); v.valor_inicial = U.reais(ini);
     if (!U.mesValido(v.mes_alvo)) throw erro_(400, 'Informe até quando vocês querem chegar na meta (mês e ano).');
+    if (!U.mesPossivel(v.mes_alvo)) throw erro_(400, U.motivoMes(v.mes_alvo, 'Mês da meta'));
     if (!atual && v.mes_alvo < U.mesAtual()) throw erro_(400, 'O mês da meta já passou. Escolha um mês a partir de ' + U.rotuloMes(U.mesAtual()) + '.');
     var r = Number(String(g('rendimento_mes') == null ? 0 : g('rendimento_mes')).replace(',', '.')); if (isNaN(r) || r < 0 || r > 10) throw erro_(400, 'Rendimento ao mês inválido (ex.: 0,8).'); v.rendimento_mes = Math.round(r * 1000) / 1000;
     var us = P.ativos(), p1 = Number(g('pct1')); if (isNaN(p1)) p1 = 50; if (p1 < 0 || p1 > 100) throw erro_(400, 'A divisão deve ficar entre 0% e 100%.');
