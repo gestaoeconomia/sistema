@@ -81,9 +81,10 @@ var NT = (function () {
   /** Marca como vistas as notificações de quem chama (todas, ou só as dos ids). */
   function marcarLidas(email, ids) {
     var set = Array.isArray(ids) ? ids.reduce(function (o, k) { o[k] = 1; return o; }, {}) : null, agora = D.agoraISO(), n = 0;
-    D.todos('notificacoes').filter(function (x) { return x.para === email && !x.lida_em && (!set || set[x.id]); }).slice(0, 200).forEach(function (x) {
-      var o = {}; Object.keys(x).forEach(function (k) { o[k] = x[k]; }); o.lida_em = agora; D.atualizar('notificacoes', o); n++;
+    var alt = D.todos('notificacoes').filter(function (x) { return x.para === email && !x.lida_em && (!set || set[x.id]); }).slice(0, 200).map(function (x) {
+      var o = {}; Object.keys(x).forEach(function (k) { o[k] = x[k]; }); o.lida_em = agora; n++; return o;
     });
+    D.atualizarVarios('notificacoes', alt);   // V1.4 (do SIG): uma localização e linhas vizinhas num só bloco, em vez de uma gravação por aviso
     return { ok: true, marcadas: n, nao_lidas: naoLidas(email) };
   }
   return { compra: compra, gasto: gasto, lote: lote, listar: listar, naoLidas: naoLidas, marcarLidas: marcarLidas };

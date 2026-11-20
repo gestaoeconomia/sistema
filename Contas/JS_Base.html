@@ -148,7 +148,7 @@ let retomando = null;
 function retomarSilencioso() {
   const tk = lerManter(); if (!tk) return Promise.resolve(false);
   if (!retomando) retomando = rpc({ m: 'POST', u: '/api/auth/retomar', b: { token: tk } }).then(r => {
-    if (r && r.s === 200 && r.d && r.d.sessao) { definirSessao(r.d.sessao); definirManter(tk); if (r.d.perfil) estado.perfil = r.d.perfil; return true; }
+    if (r && r.s === 200 && r.d && r.d.sessao) { definirSessao(r.d.sessao); definirManter(tk); if (r.d.perfil) estado.perfil = r.d.perfil; if (r.d.dominios) estado.dominios = r.d.dominios; return true; }
     if (r && r.s === 401) definirManter(''); return false;
   }).catch(() => false).finally(() => { setTimeout(() => { retomando = null; }, 0); });
   return retomando;
@@ -232,15 +232,27 @@ function salvarArquivo(blob, nome) {
   if (!ehCelular() && toqueAtivo()) { const a = document.createElement('a'); a.href = url; a.download = nome; document.body.append(a); a.click(); setTimeout(() => a.remove(), 2000); return; }
   const { modal } = __m_ui, { h } = __m_util; let jan;
   const ehPdf = /pdf/i.test(blob.type || '') || /\.pdf$/i.test(nome), fechar = () => setTimeout(() => jan && jan.fechar(), 800);
-  jan = modal({ titulo: 'Arquivo pronto', corpo: h('div', { class: 'arq-pronto' }, h('div', { class: 'arq-nome' }, nome), h('p', { class: 'dica' }, 'Toque em “Baixar” para salvar no aparelho.' + (ehPdf ? ' “Abrir” mostra o PDF numa nova aba (de lá dá para compartilhar ou imprimir).' : '')),
-    h('div', { class: 'acoes-linha' }, h('a', { class: 'btn', href: url, download: nome, onclick: fechar }, 'Baixar'), ehPdf ? h('a', { class: 'btn sec', href: url, target: '_blank', rel: 'noopener', onclick: fechar }, 'Abrir') : null)) });
+  // V1.4 (do SIG V6.16.1): pelo atalho da tela inicial (modo aplicativo), "Abrir" levava a uma tela sem barra e sem como voltar — some nesse modo
+  const abrir = ehPdf && !modoApp();
+  jan = modal({ titulo: 'Arquivo pronto', corpo: h('div', { class: 'arq-pronto' }, h('div', { class: 'arq-nome' }, nome), h('p', { class: 'dica' }, 'Toque em “Baixar” para salvar no aparelho.' + (abrir ? ' “Abrir” mostra o PDF numa nova aba (de lá dá para compartilhar ou imprimir).' : '')),
+    h('div', { class: 'acoes-linha' }, h('a', { class: 'btn', href: url, download: nome, onclick: fechar }, 'Baixar'), abrir ? h('a', { class: 'btn sec', href: url, target: '_blank', rel: 'noopener', onclick: fechar }, 'Abrir') : null)) });
+  // V1.4 (do SIG V6.16.1): no celular, "Compartilhar" abre o menu do aparelho (Imprimir, Salvar em Arquivos, WhatsApp, e-mail…). Precisa de um toque, por isso fica no aviso.
+  try {
+    const arq = new File([blob], nome, { type: blob.type || (ehPdf ? 'application/pdf' : 'application/octet-stream') });
+    if (ehCelular() && navigator.canShare && navigator.canShare({ files: [arq] })) {
+      const bt = h('button', { type: 'button', class: 'btn', onclick: () => { navigator.share({ files: [arq], title: nome }).then(() => jan && jan.fechar()).catch(() => {}); } }, ehPdf ? 'Compartilhar ou imprimir' : 'Compartilhar');
+      const caixa = jan && jan.el && jan.el.querySelector('.arq-pronto .acoes-linha'); if (caixa) { caixa.prepend(bt); const b0 = caixa.querySelector('a.btn:not(.sec)'); if (b0) b0.classList.add('sec'); }
+    }
+  } catch (_) { /* aparelho sem compartilhar arquivos: fica o Baixar */ }
 }
+/** Aberto pelo atalho da tela inicial (iPhone/Android), sem a barra do navegador. */
+const modoApp = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches; } catch (_) { return false; } };
 async function baixar(url, nomePadrao) {
   const r = await api('GET', url, undefined, { bruto: true }); if (!r.f) throw new ErroApi('O servidor não devolveu o arquivo.', 500);
   salvarArquivo(blobDe(r.f), r.f.nome || nomePadrao);
 }
 async function carregarDominios(forcar) { if (!estado.dominios || forcar) estado.dominios = await GET('/api/dominios'); return estado.dominios; }
-return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, salvarArquivo, carregarDominios, lerArquivoBase64, definirSessao, lerManter, definirManter, retomarSilencioso };
+return { ErroApi, estado, definirAoExpirar, api, GET, POST, PUT, DEL, baixar, salvarArquivo, carregarDominios, lerArquivoBase64, definirSessao, lerSessao, lerManter, definirManter, retomarSilencioso };
 })();
 </script>
 <script>/* ui */

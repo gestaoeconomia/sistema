@@ -226,6 +226,8 @@ table.t .sec-txt{color:var(--tinta-3);font-size:12px}
   .destaque .frase{font-size:19px}
   .barra-proj{grid-template-columns:86px 1fr 78px}
 }
+/* V1.4 (do SIG V6.16.2): imprimir/salvar PDF com as cores da tela (barras, faixas e cabeçalhos não somem) */
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
 @media print{.nav,.topo,.rodape,#toasts,.no-print{display:none!important}.app{display:block}.conteudo{padding:0}.tabela-wrap{max-height:none;overflow:visible}}
 
 /* importar extrato */

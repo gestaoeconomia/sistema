@@ -19,12 +19,19 @@ var A = (function () {
       .map(function (b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
   }
   function props() { return PropertiesService.getScriptProperties(); }
+  /** V1.4 (do SIG V6.3): leituras pelo retrato das propriedades da requisição (D.prop: uma chamada só); gravações mantêm o retrato coerente. */
+  function ler(k) { return D.prop(k); }
+  function gravar(k, v) { props().setProperty(k, v); D.propLocal(k, v); }
+  function apagar(k) { props().deleteProperty(k); D.propLocal(k, null); }
   var tokenAtual = '';
   /** Chave de sessão enviada pelo navegador nesta chamada (definida pelo api() em 01_Web.js). */
   function usarToken(t) { tokenAtual = typeof t === 'string' && t.length >= 60 && t.length <= 200 ? t : ''; esquecerPerfil(); }
-  function chaveSessao(t) { t = t === undefined ? tokenAtual : t; return t ? 'cc_sess_v2_' + hash('sessao:' + t) : ''; }
+  var chaveMemo = {};
+  function chaveSessao(t) { t = t === undefined ? tokenAtual : t; if (!t) return ''; return chaveMemo[t] || (chaveMemo[t] = 'cc_sess_v2_' + hash('sessao:' + t)); }
+  /** Chave do cache que esta requisição vai precisar para identificar quem chama (entra na ida única ao cache do api()). */
+  function chavesCache() { var k = chaveSessao(); return k ? [k] : []; }
   /** "Versão" das sessões de cada pessoa: redefinir a senha incrementa e derruba as sessões abertas dela. */
-  function versaoSessao(email) { return String(props().getProperty('cc_sv_' + hash(email)) || '0'); }
+  function versaoSessao(email) { return String(ler('cc_sv_' + hash(email)) || '0'); }
 
   // ---------- senha (hash com sal) ----------
   var ITERACOES = 300;
@@ -36,7 +43,7 @@ var A = (function () {
     return h;
   }
   function senhaForte(s) { if (typeof s === 'string') s = s.trim(); return typeof s === 'string' && s.length >= 8 && s.length <= 200 && /[A-Za-z]/.test(s) && /\d/.test(s); }
-  function guardarSenha(email, senha) { senha = String(senha).replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, ''); var sal = Utilities.getUuid(); props().setProperty(chaveSenha(email), ITERACOES + '$' + sal + '$' + derivar(senha, sal, ITERACOES)); }
+  function guardarSenha(email, senha) { senha = String(senha).replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, ''); var sal = Utilities.getUuid(); gravar(chaveSenha(email), ITERACOES + '$' + sal + '$' + derivar(senha, sal, ITERACOES)); }
   /**
    * V1.2 (do SIG V6.4): aceita a senha como digitada e, se não conferir, sem espaços nas pontas (cópia do WhatsApp/e-mail
    * costuma trazer espaço ou quebra de linha) e com a 1ª letra trocada entre maiúscula e minúscula (o corretor do celular
@@ -51,12 +58,12 @@ var A = (function () {
     return !!t && o !== c && confereExato(email, o + t.slice(1));
   }
   function confereExato(email, senha) {
-    var g = String(props().getProperty(chaveSenha(email)) || '').split('$'); if (g.length !== 3 || typeof senha !== 'string') return false;
+    var g = String(ler(chaveSenha(email)) || '').split('$'); if (g.length !== 3 || typeof senha !== 'string') return false;
     var calc = derivar(senha, g[1], Number(g[0]) || ITERACOES), ref = g[2], d = calc.length ^ ref.length;
     for (var i = 0; i < ref.length; i++) d |= calc.charCodeAt(i) ^ ref.charCodeAt(i);
     return d === 0;
   }
-  function temSenhaLocal(email) { return !!props().getProperty(chaveSenha(email)); }
+  function temSenhaLocal(email) { return !!ler(chaveSenha(email)); }
   function usuarioAtivo(email) {
     email = String(email || '').trim().toLowerCase(); if (!email) return null;
     var u = D.porId('usuarios', email); return u && u.ativo === 1 ? u : null;
@@ -72,7 +79,7 @@ var A = (function () {
   function emailAtual() {
     var k = chaveSessao(); if (!k) return '';
     try {
-      var c = CacheService.getScriptCache(), bruto = c.get(k); if (!bruto) return '';
+      var c = CacheService.getScriptCache(), bruto = D.cacheLido(k); if (bruto === undefined) bruto = c.get(k); if (!bruto) return '';   // V1.4: em geral já veio na ida única ao cache
       var s = JSON.parse(bruto), email = String((s && s.email) || '').trim().toLowerCase();
       if (!email || !P.emailValido(email) || !temSenhaLocal(email) || String(s.v) !== versaoSessao(email)) return '';
       if (Date.now() - Number(s.ts || 0) > 600000) { s.ts = Date.now(); c.put(k, JSON.stringify(s), SESSAO_S); } // renovação deslizante (a cada 10 min de uso)
@@ -114,12 +121,12 @@ var A = (function () {
     Object.keys(todas).forEach(function (k) {
       if (k.indexOf(PREF_MANTER) !== 0) return;
       var d = null; try { d = JSON.parse(todas[k]); } catch (e) {}
-      if (!d || agora >= Number(d.expiraEm || 0)) return p.deleteProperty(k);
+      if (!d || agora >= Number(d.expiraEm || 0)) return apagar(k);
       if (d.email === email) doUsuario.push({ k: k, criadoEm: Number(d.criadoEm || 0) });
     });
     doUsuario.sort(function (a, b) { return a.criadoEm - b.criadoEm; });
-    while (doUsuario.length >= MANTER_MAX) p.deleteProperty(doUsuario.shift().k);
-    p.setProperty(chavePersistente(token), JSON.stringify({ email: email, v: versaoSessao(email), criadoEm: agora, expiraEm: agora + MANTER_MS }));
+    while (doUsuario.length >= MANTER_MAX) apagar(doUsuario.shift().k);
+    gravar(chavePersistente(token), JSON.stringify({ email: email, v: versaoSessao(email), criadoEm: agora, expiraEm: agora + MANTER_MS }));
     return token;
   }
   function retomar(token) {
@@ -127,24 +134,24 @@ var A = (function () {
     if (token.length < 60 || token.length > 200) throw erro_(401, 'Sessão não encontrada.');
     limitarFrequencia('retomar', 'todos', 120, 900, 'Muitas tentativas. Aguarde alguns minutos.');
     var p = props(), chave = chavePersistente(token), d = null;
-    try { d = JSON.parse(p.getProperty(chave) || 'null'); } catch (e) {}
-    if (!d || Date.now() >= Number(d.expiraEm || 0)) { if (d) p.deleteProperty(chave); throw erro_(401, 'Sua sessão salva expirou. Entre novamente.'); }
+    try { d = JSON.parse(ler(chave) || 'null'); } catch (e) {}
+    if (!d || Date.now() >= Number(d.expiraEm || 0)) { if (d) apagar(chave); throw erro_(401, 'Sua sessão salva expirou. Entre novamente.'); }
     var email = String(d.email || '').toLowerCase(), u = usuarioAtivo(email);
-    if (!u || !temSenhaLocal(email)) { p.deleteProperty(chave); throw erro_(401, 'Seu acesso não está mais ativo. Entre novamente.'); }
-    if (d.v !== undefined && String(d.v) !== versaoSessao(email)) { p.deleteProperty(chave); throw erro_(401, 'Sua senha foi alterada. Entre novamente.'); }
-    var sessao = cacheSessao(email); d.expiraEm = Date.now() + MANTER_MS; p.setProperty(chave, JSON.stringify(d)); // renovação deslizante
+    if (!u || !temSenhaLocal(email)) { apagar(chave); throw erro_(401, 'Seu acesso não está mais ativo. Entre novamente.'); }
+    if (d.v !== undefined && String(d.v) !== versaoSessao(email)) { apagar(chave); throw erro_(401, 'Sua senha foi alterada. Entre novamente.'); }
+    var sessao = cacheSessao(email); d.expiraEm = Date.now() + MANTER_MS; gravar(chave, JSON.stringify(d)); // renovação deslizante
     u.ultimo_acesso = D.agoraISO(); D.atualizar('usuarios', u); esquecerPerfil();
     return { ok: true, perfil: P.perfilDe(u), sessao: sessao };
   }
   function sair(token) {
     var k = chaveSessao(); if (k) CacheService.getScriptCache().remove(k); tokenAtual = '';
-    if (typeof token === 'string' && token.length >= 60 && token.length <= 200) props().deleteProperty(chavePersistente(token));
+    if (typeof token === 'string' && token.length >= 60 && token.length <= 200) apagar(chavePersistente(token));
     esquecerPerfil(); return { ok: true };
   }
   function revogarSessoes(email) {
     var p = props(), todas = p.getProperties();
-    p.setProperty('cc_sv_' + hash(email), String(Number(versaoSessao(email)) + 1)); // derruba as sessões abertas em todos os aparelhos
-    Object.keys(todas).forEach(function (k) { if (k.indexOf(PREF_MANTER) !== 0) return; try { if (JSON.parse(todas[k]).email === email) p.deleteProperty(k); } catch (e) {} });
+    gravar('cc_sv_' + hash(email), String(Number(versaoSessao(email)) + 1)); // derruba as sessões abertas em todos os aparelhos
+    Object.keys(todas).forEach(function (k) { if (k.indexOf(PREF_MANTER) !== 0) return; try { if (JSON.parse(todas[k]).email === email) apagar(k); } catch (e) {} });
   }
 
   // ---------- senha: troca, redefinição ----------
@@ -172,7 +179,7 @@ var A = (function () {
   }
 
   // ---------- cadastro ----------
-  function permitidos() { return String(props().getProperty('EMAILS_PERMITIDOS') || '').split(/[,;\s]+/).map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean); }
+  function permitidos() { return String(ler('EMAILS_PERMITIDOS') || '').split(/[,;\s]+/).map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean); }
   function cadastroAberto() { return P.ativos().length < APP.MAX_USUARIOS; }
   function cadastrar(b) {
     limitarFrequencia('cadastro', 'todos', 8, 3600);
@@ -191,7 +198,7 @@ var A = (function () {
   }
 
   return {
-    usarToken: usarToken, temSenhaLocal: temSenhaLocal, perfilAtual: perfilAtual, esquecerPerfil: esquecerPerfil, entrar: entrar, retomar: retomar, sair: sair,
+    usarToken: usarToken, chavesCache: chavesCache, temSenhaLocal: temSenhaLocal, perfilAtual: perfilAtual, esquecerPerfil: esquecerPerfil, entrar: entrar, retomar: retomar, sair: sair,
     alterarSenha: alterarSenha, redefinirSenhaDoParceiro: redefinirSenhaDoParceiro, definirSenhaPeloEditor: definirSenhaPeloEditor, revogarSessoes: revogarSessoes,
     cadastrar: cadastrar, cadastroAberto: cadastroAberto, limitarFrequencia: limitarFrequencia, hash: hash
   };

@@ -18,7 +18,7 @@ function doGet() {
  * URL_PUBLICA (propriedade do script, opcional) fixa o link da implantação, se o Google devolver o de outra.
  */
 function urlApp_() {
-  var fixo = ''; try { fixo = String(D.props().getProperty('URL_PUBLICA') || ''); } catch (e) { fixo = ''; }
+  var fixo = ''; try { fixo = String(D.prop('URL_PUBLICA') || ''); } catch (e) { fixo = ''; }
   return fixo || urlDetectada_();
 }
 function urlDetectada_() {
@@ -30,7 +30,7 @@ function normalizarUrlApp_(u) {
   return m ? 'https://script.google.com/macros/s/' + m[1] + '/exec' : '';
 }
 /** Link dos e-mails de aviso: o site do GitHub Pages (Minha conta ▸ Site do app), se cadastrado, ou o link do Apps Script. */
-function linkPublico_() { var x = ''; try { x = String(D.props().getProperty('URL_EXTERNA') || ''); } catch (e) { x = ''; } return x || urlApp_(); }
+function linkPublico_() { var x = ''; try { x = String(D.prop('URL_EXTERNA') || ''); } catch (e) { x = ''; } return x || urlApp_(); }
 
 /**
  * Mesma API, chamada por fetch a partir das telas hospedadas fora do Google (site estático — ver LEIA-ME).
@@ -53,7 +53,9 @@ function analisarUrl_(u) {
   return { path: i < 0 ? u : u.slice(0, i), query: q };
 }
 
-/** Único ponto de entrada chamado pelo navegador. Nunca lança exceção: devolve { s, d }. */
+/** Único ponto de entrada chamado pelo navegador. Nunca lança exceção: devolve { s, d }.
+ *  V1.4 (do SIG V6.3): uma só ida ao cache traz a sessão de quem chama e as tabelas que a rota costuma usar (D.rota);
+ *  nas gravações, versões/contadores/blocos do cache são gravados de uma vez, ANTES de soltar a trava (D.adiar). */
 function api(req) {
   var travou = false, lock = null;
   try {
@@ -66,17 +68,20 @@ function api(req) {
       if (m) { alvo = r; args = m.slice(1).map(function (x) { return decodeURIComponent(x); }); break; }
     }
     if (!alvo) throw erro_(404, 'Rota não encontrada.');
+    var grava = req.m !== 'GET' || !!alvo.opts.escreve;
+    D.rota(chaveRota_(alvo, req), A.chavesCache(), grava);
     var perfil = A.perfilAtual();
     if (!alvo.opts.publica && !perfil) throw erro_(401, 'Sessão expirada. Entre novamente.');
     var c = { perfil: perfil, url: url, query: url.query, body: (req.b && typeof req.b === 'object') ? req.b : {}, raw: typeof req.raw === 'string' ? req.raw : null };
-    if (req.m !== 'GET' || alvo.opts.escreve) {
+    if (grava) {
       lock = LockService.getScriptLock();
       try { lock.waitLock(30000); travou = true; } catch (e) { throw erro_(503, 'O sistema está ocupado com outra gravação. Tente novamente em instantes.'); }
-      D.reiniciarMemoria(); A.esquecerPerfil(); c.perfil = A.perfilAtual();
+      // dentro da trava: relê tudo (outra pessoa pode ter acabado de gravar) — a sessão e as tabelas da rota voltam numa só ida ao cache
+      D.reiniciarMemoria(); D.adiar(true); D.retomarRota(A.chavesCache()); A.esquecerPerfil(); c.perfil = A.perfilAtual();
       if (!alvo.opts.publica && !c.perfil) throw erro_(401, 'Sessão expirada. Entre novamente.');
     }
     var res = alvo.fn.apply(null, [c].concat(args));
-    D.descarregarAuditoria();
+    D.descarregarAuditoria(); D.aprender();
     if (res && res.__arquivo) return { s: 200, f: { nome: res.nome, tipo: res.tipo, b64: res.b64 } };
     return JSON.parse(JSON.stringify({ s: 200, d: res === undefined ? { ok: true } : res })); // só JSON puro volta ao navegador
   } catch (e) {
@@ -85,14 +90,17 @@ function api(req) {
     try { D.descarregarAuditoria(); } catch (_) {}
     var d = { erro: st === 500 && !(e && e.codigo) ? 'Erro interno. Tente novamente.' : e.message };
     if (e && e.codigo) d.codigo = e.codigo;
-    if (st === 500) { try { if (PropertiesService.getScriptProperties().getProperty('DEBUG') === '1') d.erro += ' [' + String(e && e.message || e).slice(0, 300) + ']'; } catch (_) {} }
+    if (st === 500) { try { if (D.prop('DEBUG') === '1') d.erro += ' [' + String(e && e.message || e).slice(0, 300) + ']'; } catch (_) {} }
     return { s: st, d: d };
   } finally {
     if (travou && lock) {
-      // V1.2 (do SIG V6.3): confirma na planilha o que acabou de ser escrito ANTES de liberar a vez — sem isso a próxima
-      // gravação podia calcular a "próxima linha livre" antes de a linha anterior aparecer
-      try { SpreadsheetApp.flush(); } catch (_) {}
+      // confirma na planilha o que acabou de ser escrito (flush) e grava versões, contadores e blocos do cache ANTES de liberar a vez:
+      // quem entrar em seguida já lê os dados novos
+      try { D.adiar(false); } catch (e2) { try { console.error('Falha ao gravar versões: ' + (e2 && e2.message)); } catch (_) {} }
       try { lock.releaseLock(); } catch (_) {}
     }
+    try { D.fim(); } catch (_) {}
   }
 }
+/** Nome da rota para a pré-carga automática (ex.: "G/api/compras/(CMP-\\d+)"). */
+function chaveRota_(alvo, req) { return req.m.charAt(0) + alvo.rx.source.replace(/[\^$\\]/g, ''); }

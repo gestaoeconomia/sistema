@@ -1,7 +1,7 @@
 /**
  * Instalação e manutenção — execute estas funções pelo editor do Apps Script (conta proprietária).
  * Ordem: 1) preencha EMAILS_DO_CASAL (e, se importou a planilha pronta, PLANILHA_ID_EXISTENTE) abaixo  2) instalar()  3) Implantar > Nova implantação > App da Web
- *        4) (opcional) criarAcionadorBackup()
+ *        4) (opcional) criarAcionadorBackup()   5) (opcional) criarAcionadorCache()   6) (opcional) compactarPlanilha()
  * O instalar() também agenda os avisos por e-mail (todo dia às 8h). Pode ser executado de novo sem perder dados.
  */
 
@@ -30,6 +30,8 @@ function prepararAba_(ss, nome, colunas, primeira) {
   var n = colunas.length;
   if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
   var t = Object.keys(D.ESQ).filter(function (k) { return D.ESQ[k].aba === nome; })[0];
+  // V1.4: aba no formato compactado (2 colunas) fica como está — reescrever o cabeçalho em colunas a tornaria ilegível para o app
+  if (t && D.ESQ[t].compactavel && D.ehCabCompacto(sh.getRange(1, 2).getValue())) { sh.setFrozenRows(1); return sh; }
   sh.getRange(1, 1, 1, n).setNumberFormat('@'); if (t) D.formatarTexto(sh, t, 2, sh.getMaxRows() - 1); // só as colunas de texto
   sh.getRange(1, 1, 1, n).setValues([colunas]).setBackground(CABECALHO_COR_).setFontColor('#ffffff').setFontWeight('bold');
   sh.setFrozenRows(1);
@@ -54,6 +56,8 @@ function leiaMe_(ss) {
     ['• Metas (METAS) e depósitos nas metas (META_APORTES): o app calcula quanto guardar por mês a partir delas.'],
     [''],
     ['• LIMITES: teto mensal por categoria de cada pessoa. GASTOS_PIX_DEBITO.ref_externa marca o que veio de extrato importado (evita importar duas vezes).'],
+    [''],
+    ['• FORMATO COMPACTADO (opcional, V1.4): COMPRAS_CARTAO, GASTOS_PIX_DEBITO e NOTIFICACOES podem ficar com só 2 colunas (A = ID, B = o registro compactado). Deixa o app mais rápido. Essas abas NÃO devem ser editadas à mão; para voltar ao formato legível use Minha conta ▸ Planilha de dados ▸ Voltar ao formato de colunas (ou descompactarPlanilha() no editor).'],
     [''],
     ['• NOTIFICACOES: avisos para o(a) parceiro(a) quando uma compra ou pix dividido é lançado, alterado ou excluído (lida_em vazio = ainda não vista).'],
     [''],
@@ -93,7 +97,8 @@ function diagnostico() {
   exigirInterno_(); D.reiniciarMemoria(); var p = D.props(), o = {};
   o.planilha = p.getProperty('PLANILHA_ID') ? 'ok' : 'NÃO CRIADA (execute instalar())';
   o.emails_permitidos = p.getProperty('EMAILS_PERMITIDOS') || '(qualquer e-mail, até 2 contas)';
-  if (p.getProperty('PLANILHA_ID')) Object.keys(D.ESQ).forEach(function (t) { try { o['linhas_' + t] = D.todos(t).length; } catch (e) { o['linhas_' + t] = 'ERRO: ' + e.message; } });
+  if (p.getProperty('PLANILHA_ID')) Object.keys(D.ESQ).forEach(function (t) { try { o['linhas_' + t] = D.todos(t).length + (D.compacta(t) ? ' (compactada)' : ''); } catch (e) { o['linhas_' + t] = 'ERRO: ' + e.message; } });
+  o.acionador_cache = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'aquecerCache'; }) ? 'ligado' : 'desligado (opcional: criarAcionadorCache)';
   try { o.url_app = urlApp_() || '(ainda não implantado)'; o.link_publico = linkPublico_(); } catch (e) { o.url_app = '?'; }
   console.log(JSON.stringify(o, null, 2)); return o;
 }
@@ -105,7 +110,8 @@ function backupAgora(e) {
   acertarFusoPlanilha_(); // V1.2 (do SIG V6.5.6): a planilha sempre no horário do Recife
   DriveApp.getFileById(id).makeCopy('backup_' + D.hojeISO() + '_' + Utilities.formatDate(new Date(), APP.TZ, "HH'h'mm"), pasta); // V1.2: hora do Recife (antes saía a de Londres)
   var arqs = [], f = pasta.getFiles(); while (f.hasNext()) arqs.push(f.next());
-  arqs.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); }).slice(30).forEach(function (x) { x.setTrashed(true); });
+  // V1.4 (do SIG V6.16): as cópias "antes_…" (feitas antes de compactar/descompactar) não entram na limpeza dos backups diários
+  arqs.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); }).filter(function (x) { return !/^antes_/.test(x.getName()); }).slice(30).forEach(function (x) { x.setTrashed(true); });
   return 'Backup criado.';
 }
 /** Fuso da planilha de dados = America/Recife (datas digitadas direto na planilha não "pulam" um dia). */
@@ -142,3 +148,24 @@ function criarIcone() {
 }
 /** Nome antigo, mantido: confere o ícone da aba (mesmo que diagnosticarIcone). */
 function testarIcone() { return diagnosticarIcone(); }
+
+/**
+ * V1.4 (do SIG V6.3) — (Opcional) CACHE SEMPRE PRONTO: rode criarAcionadorCache() uma vez. A cada 5 min, das 7h às 23h (todos os dias:
+ * o app é usado também à noite e no fim de semana), relê da planilha as tabelas cujo cache está para vencer — ninguém espera a leitura
+ * da planilha ao abrir o app, e o que for alterado à mão aparece em 5 a 10 min. Custo: ~12 execuções curtas por hora. Para desligar: removerAcionadorCache().
+ */
+function aquecerCache(e) {
+  var local = new Date(Date.now() - 3 * 3600 * 1000), hora = local.getUTCHours();   // America/Recife (UTC-3, sem horário de verão)
+  if (hora < 7 || hora >= 23) return 'Fora do horário (7h–23h).';
+  D.reiniciarMemoria(); D.rota('');
+  try { return D.aquecer(300) + ' tabela(s) relida(s).'; } finally { D.fim(); }
+}
+function criarAcionadorCache() {
+  exigirInterno_(); removerAcionadorCache();
+  ScriptApp.newTrigger('aquecerCache').timeBased().everyMinutes(5).create(); return 'Cache mantido pronto a cada 5 min (7h–23h).';
+}
+function removerAcionadorCache() {
+  exigirInterno_();
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'aquecerCache') ScriptApp.deleteTrigger(t); });
+  return 'Acionador do cache removido.';
+}

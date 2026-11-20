@@ -8,7 +8,7 @@
  *  • Funções administrativas (instalar, redefinirSenha etc.) só rodam pelo editor do Apps Script (conta proprietária).
  *  • Valores em dinheiro são calculados em CENTAVOS (inteiros) e gravados na planilha com 2 casas decimais.
  */
-var APP = { TZ: 'America/Recife', TITULO: 'Gestão Financeira', VERSAO: 'V1.3 - 18/11/2026', MAX_USUARIOS: 2 };
+var APP = { TZ: 'America/Recife', TITULO: 'Gestão Financeira', VERSAO: 'V1.4 - 20/11/2026', MAX_USUARIOS: 2 };
 
 /** V1.2 (do SIG V6.3): comparação de textos em português com um Intl.Collator criado UMA vez — mesmo resultado de
  *  a.localeCompare(b, 'pt-BR'), bem mais rápido em ordenações grandes (localeCompare com idioma monta o comparador a cada chamada). */

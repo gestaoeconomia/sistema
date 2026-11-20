@@ -169,7 +169,7 @@ var EXT = (function () {
       var v; try { v = R.validarGasto(b); } catch (e) { throw erro_(400, 'Linha ' + (i + 1) + ' (' + U.texto(b.descricao, 40) + '): ' + e.message); }
       v.ref_externa = ref; v.pago_por = perfil.email; v.criado_por = perfil.email; v.criado_em = agora; if (ref) refs[ref] = 1; out.push(v);
     });
-    out.forEach(function (v) { v.id = D.proximoId('GAS', 6); });
+    var ids = D.reservarIds('GAS', out.length, 6); out.forEach(function (v, i) { v.id = ids[i]; });   // V1.4: uma reserva só
     if (out.length) { D.inserirVarios('gastos', out); NT.lote(perfil, 'gasto', out, 'do extrato importado'); }
     D.auditar(perfil.email, 'Importou ' + out.length + ' gastos do extrato', 'gastos', out.map(function (v) { return v.id; }).join(',').slice(0, 900), { arquivo: U.texto(body.arquivo, 120), pulados: pular });
     return { ok: true, n: out.length, pulados: pular, total: U.reais(out.reduce(function (s, v) { return s + U.centavos(v.valor); }, 0)) };

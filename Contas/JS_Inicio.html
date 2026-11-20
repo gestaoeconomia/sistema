@@ -1,7 +1,7 @@
 <script>/* main */
 const __m_main = (() => {
 const { h, ico, limpar, qs, iniciais, primeiroNome } = __m_util;
-const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
+const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
 const { toast, campo } = __m_ui;
 const ROTAS = {
   resumo: { titulo: 'Início', icone: 'home', grupo: 'Visão geral', cor: '#0E4D5B', mod: () => __m_pages_resumo },
@@ -21,7 +21,10 @@ let shell = null, rotaAtual = null;
 
 function rotaDoHash() { const [caminho, q] = location.hash.replace(/^#\/?/, '').split('?'); return { nome: caminho || '', query: Object.fromEntries(new URLSearchParams(q || '')) }; }
 function ir(nome, query) { location.hash = '#/' + nome + (query && Object.keys(query).length ? '?' + qs(query) : ''); }
-window.addEventListener('hashchange', rotear);
+/** V1.4 (do SIG V6.3): quando o próprio app troca o endereço e já chama rotear(), o aviso de "endereço mudou" não monta a tela de novo
+ *  (ao entrar, o Início era montado duas vezes e pedia tudo em dobro ao servidor). */
+let hashTratado = null;
+window.addEventListener('hashchange', () => { if (location.hash === hashTratado) return; rotear(); });
 
 /** Logotipo (V1.3) — "Casa em alta": a casa cujo telhado vira uma seta subindo, com a moeda na janela, sobre vidro petróleo
  *  (o mesmo desenho de icones/icone.svg). */
@@ -70,12 +73,12 @@ async function retomarSessao(token) {
   if (window.SPLASH) { SPLASH.reabrir(); let n = ''; try { n = localStorage.getItem('cc_ultimo_nome') || ''; } catch (_) {} SPLASH.ola(n); SPLASH.msg('Retomando sua sess\u00e3o\u2026'); }
   try {
     const r = await POST('/api/auth/retomar', { token }, { semRedirecionar: true });
-    definirSessao(r.sessao); definirManter(token); estado.perfil = r.perfil; estado.dominios = null; lembrarAparelho(r.perfil, true);
+    definirSessao(r.sessao); definirManter(token); estado.perfil = r.perfil; estado.dominios = r.dominios || null; lembrarAparelho(r.perfil, true);
     if (window.SPLASH) SPLASH.novaTela();
     location.hash = '#/'; return rotear();
   } catch (er) {
     if (er && er.status === 401) { definirManter(''); try { localStorage.removeItem('cc_ultimo_nome'); } catch (_) {} }   // o e-mail fica, para já vir preenchido
-    if (window.SPLASH) SPLASH.ola('');
+    if (window.SPLASH) { SPLASH.ola(''); SPLASH.naoMedir(); }
     telaLogin({ expirou: er && er.status === 401, erro: er && er.status !== 401 ? er.message : '' }); if (window.SPLASH) SPLASH.telaPronta();
   }
 }
@@ -87,12 +90,12 @@ function telaLogin(op) {
   const manter = h('input', { type: 'checkbox', id: 'manter', checked: true }); let ocupado = false;
   const btn = h('button', { class: 'btn', type: 'submit' }, 'Entrar'), linkCad = h('div', { style: { marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--linha)', textAlign: 'center' } }, h('p', { class: 'dica', style: { margin: '0 0 8px' } }, 'Ainda não tem conta?'), h('a', { class: 'btn sec', href: '#/cadastro', style: { width: '100%', justifyContent: 'center', padding: '12px' } }, ico('usuario'), 'Criar conta'));
   const travar = v => { ocupado = v; btn.disabled = v; };
-  const depois = perfil => { estado.perfil = perfil; estado.dominios = null; msg.textContent = 'Entrando…'; location.hash = '#/'; rotear(); };
+  const depois = (perfil, dom) => { estado.perfil = perfil; estado.dominios = dom || null; msg.textContent = 'Entrando…'; location.hash = '#/'; rotear(); };
   const mostrarSenha = h('label', { class: 'manter', style: { marginTop: '6px' } }, h('input', { type: 'checkbox', onchange: e => { senha.type = e.target.checked ? 'text' : 'password'; } }), 'Mostrar senha');
   const form = h('form', { onsubmit: async e => {
     e.preventDefault(); if (ocupado) return; travar(true); msg.textContent = 'Aguarde…';
     try { const r = await POST('/api/auth/entrar', { email: email.value, senha: senha.value, manter: manter.checked }); senha.value = '';
-      definirManter(r.token || ''); lembrarAparelho(r.perfil, manter.checked); depois(r.perfil);
+      definirManter(r.token || ''); lembrarAparelho(r.perfil, manter.checked); depois(r.perfil, r.dominios);
     } catch (er) { msg.textContent = er.message; } finally { travar(false); } } },
     campo('E-mail', email), campo('Senha', senha), mostrarSenha, h('label', { class: 'manter' }, manter, 'Manter-me conectado neste aparelho'), h('div', { style: { height: '12px' } }), btn);
   paginaAcesso(h('main', { class: 'entrada painel' }, h('h1', {}, 'Entrar'),
@@ -273,17 +276,28 @@ function erroFatal(e) {
   limpar(raiz).append(h('div', { class: 'aviso erro', style: { margin: '40px auto', maxWidth: '560px' } }, h('b', {}, 'Não foi possível abrir o app. '), (e && e.message) || String(e),
     h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => location.reload() }, 'Tentar novamente'))));
 }
+/** V1.4 (do SIG V6.3): sessão (ou falta dela) para a qual o servidor já respondeu "ninguém entrou" — não pergunta de novo ao trocar entre entrar e criar conta. */
+let semPerfilPara = null;
 async function rotearInterno() {
+  hashTratado = location.hash;
   const { nome, query } = rotaDoHash();
-  if (!estado.perfil) {
-    if (window.SPLASH) SPLASH.msg('Verificando seu acesso…');
-    try { const r = await GET('/api/eu', { semRedirecionar: true }); estado.perfil = r.perfil; }
+  if (!estado.perfil && semPerfilPara !== (lerSessao() || '')) {
+    if (window.SPLASH) {
+      SPLASH.msg('Verificando seu acesso…');
+      // V1.4 (do SIG V6.15.1): já logado — a saudação aparece desde o início (nome lembrado) e é confirmada quando o servidor responde
+      if (lerSessao()) { let n = ''; try { n = localStorage.getItem('cc_ultimo_nome') || ''; } catch (_) {} if (n) SPLASH.ola(n); }
+    }
+    // dom=1: as listas dos formulários vêm na mesma resposta (uma ida a menos ao servidor ao abrir o app)
+    try { const r = await GET('/api/eu?dom=1', { semRedirecionar: true }); estado.perfil = r.perfil; if (r.perfil && r.dominios) estado.dominios = r.dominios;
+      if (window.SPLASH && SPLASH.ativa()) SPLASH.ola(r.perfil ? primeiroNome(r.perfil.nome) : '');
+      if (!r.perfil) semPerfilPara = lerSessao() || ''; }
     catch (e) { if (e && e.status === 0 && !PUBLICAS.includes(nome)) throw e; }   // falha de comunicação: mostra o motivo e o que fazer
   }
   if (!estado.perfil) {
     if (!PUBLICAS.includes(nome)) { location.hash = '#/login'; return; }
     // sem sessão nesta aba, mas com "manter-me conectado": entra direto, por trás da tela de abertura (sem mostrar o login)
     if (nome !== 'cadastro') { const tk = podeRetomar(); if (tk) return retomarSessao(tk); }
+    if (window.SPLASH) { SPLASH.ola(''); SPLASH.naoMedir(); }   // aberturas que param na tela de entrada não contam como tempo normal
     const tela = nome === 'cadastro' ? telaCadastro() : telaLogin(); if (window.SPLASH) SPLASH.telaPronta(); return tela;
   }
   if (PUBLICAS.includes(nome)) { location.hash = '#/'; return; }

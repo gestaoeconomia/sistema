@@ -12,11 +12,12 @@ function exigirVisivel_(dono, divisao, perfil, oQue) { if (!R.visivel(dono, divi
 
 // ---------- rotas públicas e de sessão ----------
 rota_('GET', '/api/config', { publica: true }, function () { var aberto = true; try { aberto = A.cadastroAberto(); } catch (e) { /* planilha ainda não instalada */ } return { cadastro_aberto: aberto, versao: APP.VERSAO }; });
-rota_('POST', '/api/auth/entrar', { publica: true }, function (c) { var r = A.entrar(c.body.email, c.body.senha, c.body.manter === true); return { ok: true, sessao: r.sessao, token: r.token, perfil: r.perfil }; });
-rota_('POST', '/api/auth/retomar', { publica: true }, function (c) { return A.retomar(c.body.token); });
+// V1.4 (do SIG V6.3): entrar, retomar e "quem sou eu" já trazem as listas dos formulários (uma ida a menos ao servidor ao abrir o app)
+rota_('POST', '/api/auth/entrar', { publica: true }, function (c) { var r = A.entrar(c.body.email, c.body.senha, c.body.manter === true); return { ok: true, sessao: r.sessao, token: r.token, perfil: r.perfil, dominios: dominios_() }; });
+rota_('POST', '/api/auth/retomar', { publica: true }, function (c) { var r = A.retomar(c.body.token); r.dominios = dominios_(); return r; });
 rota_('POST', '/api/auth/sair', { publica: true }, function (c) { return A.sair(c.body.token); });
 rota_('POST', '/api/cadastro', { publica: true }, function (c) { return A.cadastrar(c.body); });
-rota_('GET', '/api/eu', { publica: true }, function (c) { return { perfil: c.perfil || null }; });
+rota_('GET', '/api/eu', { publica: true }, function (c) { var r = { perfil: c.perfil || null }; if (c.perfil && c.query.dom === '1') r.dominios = dominios_(); return r; });
 
 // ---------- conta ----------
 rota_('POST', '/api/auth/alterar-senha', {}, function (c) { return A.alterarSenha(c.perfil.email, c.body.atual, c.body.nova); });
@@ -28,14 +29,15 @@ rota_('PUT', '/api/conta', {}, function (c) {
   A.esquecerPerfil(); return { perfil: A.perfilAtual() };
 });
 
-rota_('GET', '/api/dominios', {}, function () {
+function dominios_() {
   return {
     usuarios: P.ativos().map(function (u) { return { email: u.email, nome: u.nome, apelido: P.primeiroNome(u.nome) }; }),
     cartoes: D.todos('cartoes').map(function (x) { var o = limpo_(x); o.rotulo = R.nomeCartao(x); o.titular_nome = P.nomeDe(x.titular); return o; })
       .sort(function (a, b) { return b.ativo - a.ativo || ORD_PT_(a.rotulo, b.rotulo); }),
     categorias: R.categorias(), hoje: D.hojeISO(), mes_atual: U.mesAtual()
   };
-});
+}
+rota_('GET', '/api/dominios', {}, function () { return dominios_(); });
 
 // ---------- resumo (início) ----------
 rota_('GET', '/api/resumo', {}, function (c) {
@@ -141,7 +143,8 @@ rota_('GET', '/api/terceiros', {}, function (c) {
 });
 rota_('POST', '/api/compras/lote', {}, function (c) {
   var lista = R.validarLote(c.body, c.perfil), agora = D.agoraISO(); // valida tudo antes de gravar: ou entram todos, ou nenhum
-  lista.forEach(function (v) { v.id = D.proximoId('CMP', 6); v.criado_por = c.perfil.email; v.criado_em = agora; });
+  var ids = D.reservarIds('CMP', lista.length, 6);   // V1.4 (do SIG V6.9): todos os IDs numa reserva só
+  lista.forEach(function (v, i) { v.id = ids[i]; v.criado_por = c.perfil.email; v.criado_em = agora; });
   D.inserirVarios('compras', lista); // uma única escrita na planilha
   var carL = D.porId('cartoes', c.body.cartao_id); NT.lote(c.perfil, 'compra', lista, carL ? 'fatura de ' + U.rotuloMes(String(c.body.fatura || '').slice(0, 7)) + ' do ' + R.nomeCartao(carL) : '', String(c.body.fatura || '').slice(0, 7));
   var total = lista.reduce(function (s, v) { return s + U.centavos(v.valor_total) / v.parcelas; }, 0);
@@ -272,7 +275,7 @@ rota_('PUT', '/api/metas/(MET-\\d+)', {}, function (c, id) {
 });
 rota_('DELETE', '/api/metas/(MET-\\d+)', {}, function (c, id) {
   var at = D.porId('metas', id); if (!at) throw erro_(404, 'Meta não encontrada.');
-  var aps = M.aportesDe(id); aps.slice().sort(function (a, b) { return (b._r || 0) - (a._r || 0); }).forEach(function (a) { D.excluir('aportes', a); });
+  var aps = M.aportesDe(id); D.excluirVarios('aportes', aps);   // V1.4: depósitos vizinhos saem de uma vez
   D.excluir('metas', at); D.auditar(c.perfil.email, 'Excluiu meta', 'metas', id, { nome: at.nome, depositos: aps.length }); return { ok: true };
 });
 rota_('POST', '/api/metas/(MET-\\d+)/aportes', {}, function (c, id) {

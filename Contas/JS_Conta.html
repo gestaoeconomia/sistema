@@ -1,8 +1,8 @@
 <script>/* pages/conta */
 const __m_pages_conta = (() => {
-const { h, limpar, fmtData, iniciais, ico } = __m_util;
+const { h, limpar, fmtData, fmtN, iniciais, ico } = __m_util;
 const { GET, POST, PUT, estado, carregarDominios } = __m_api;
-const { cabPagina, toast, campo } = __m_ui;
+const { cabPagina, toast, campo, confirmar, tabela } = __m_ui;
 
 /** Avisos por e-mail: lembretes de vencimento, limites e acerto; resumo do mês no dia 1º. */
 function painelAvisos(perfil) {
@@ -34,15 +34,53 @@ function painelSite() {
     let r; try { r = await GET('/api/acesso-externo'); } catch (e) { limpar(corpo).append(h('div', { class: 'erro-txt' }, e.message)); return; }
     const ext = h('input', { type: 'text', inputmode: 'url', autocapitalize: 'off', spellcheck: false, value: r.externa || '', placeholder: 'https://seu-usuario.github.io/sistema/' });
     const salvar = async v => { msg.textContent = ''; try { await PUT('/api/acesso-externo', { externa: v }); toast(v ? 'Endereço salvo.' : 'Endereço removido.'); carregar(); } catch (e) { msg.textContent = e.message; } };
-    limpar(corpo).append(
+    limpar(corpo).append(...[
       r.externa ? h('p', { class: 'dica' }, 'Os e-mails de aviso levam para: ', h('a', { href: r.externa, target: '_blank', rel: 'noopener', style: { overflowWrap: 'anywhere' } }, r.externa))
         : h('div', { class: 'aviso info' }, 'Ainda sem endereço: os e-mails levam para o link do Apps Script.'),
       aqui && aqui !== r.externa ? h('div', { class: 'acoes-linha', style: { margin: '8px 0' } }, h('button', { class: 'btn sec', type: 'button', onclick: () => salvar(aqui) }, ico('ok'), 'Usar este endereço (' + aqui.replace(/^https?:\/\//, '') + ')')) : null,
       campo('Endereço do site', ext, { dica: 'Deixe vazio para os e-mails usarem o link do Apps Script.' }), msg,
-      h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => salvar(ext.value.trim()) }, 'Salvar endereço')));
+      h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', type: 'button', onclick: () => salvar(ext.value.trim()) }, 'Salvar endereço'))].filter(Boolean));   // V1.4: sem o "null" que aparecia na tela
   }
   carregar();
   return h('div', { class: 'painel' }, h('h2', {}, 'Site do app'), h('p', { class: 'sub' }, 'O endereço do GitHub Pages, que vai nos e-mails de aviso. No iPhone: abra no Safari ▸ Compartilhar ▸ “Adicionar à Tela de Início”.'), corpo);
+}
+/**
+ * V1.4 (do SIG V6.16) — Planilha de dados: formato das tabelas que crescem (compras, pix/débito e notificações).
+ * Compactada, cada registro ocupa 2 células em vez de 11 a 17 e o app lê esses dados bem mais rápido.
+ */
+function painelPlanilha() {
+  const fmt = h('div', {}, h('p', { class: 'carregando' }, 'Conferindo o formato das abas…'));
+  async function carregarFmt(resultado) {
+    let r; try { r = await GET('/api/banco/formato'); } catch (er) { limpar(fmt).append(h('div', { class: 'erro-txt' }, er.message)); return; }
+    const t = r.tabelas, temCol = t.some(x => x.formato === 'colunas'), temCp = t.some(x => x.formato === 'compactado');
+    limpar(fmt);
+    if (resultado) fmt.append(resultado);
+    fmt.append(tabela([{ titulo: 'Aba', f: x => x.aba }, { titulo: 'Formato', f: x => x.formato_txt }, { titulo: 'Registros', num: true, f: x => fmtN(x.linhas) }, { titulo: 'Células', num: true, f: x => fmtN(x.celulas) }], t));
+    const converter = async (ev, destino) => {
+      const b = ev.currentTarget, comp = destino === 'compactado';
+      if (!(await confirmar(comp ? 'Compactar as tabelas?' : 'Voltar ao formato de colunas?', comp
+        ? 'Será feita uma cópia de segurança da planilha inteira no Drive e cada registro será conferido antes da troca. Depois disso, essas abas só devem ser alteradas pelo app.'
+        : 'Será feita uma cópia de segurança e as abas voltam a ter uma coluna por campo (legíveis na planilha). A leitura volta a ser mais lenta.', comp ? 'Compactar' : 'Voltar ao formato de colunas'))) return;
+      fmt.querySelectorAll('button').forEach(x => { x.disabled = true; });
+      b.textContent = 'Convertendo… (até 1 minuto; não feche esta tela)';
+      try {
+        const res = await POST('/api/banco/formato', { destino });
+        const msg = res.nada ? h('div', { class: 'aviso ok' }, 'Nada a converter: as abas já estavam nesse formato.')
+          : h('div', { class: 'aviso ok' }, h('b', {}, comp ? 'Tabelas compactadas e conferidas.' : 'Tabelas de volta ao formato de colunas e conferidas.'),
+            h('ul', { style: { margin: '6px 0 0 18px', padding: 0 } }, res.feitos.map(f => h('li', {}, f.aba + ': ' + fmtN(f.registros) + ' registros · ' + fmtN(f.celulas_antes) + ' → ' + fmtN(f.celulas_depois) + ' células' + (f.descartadas ? ' (' + f.descartadas + ' linha(s) sem ID ficaram só na cópia)' : '')))),
+            res.backup ? h('p', { style: { margin: '6px 0 0' } }, 'Cópia de segurança: ', h('a', { href: res.backup, target: '_blank', rel: 'noopener' }, 'abrir no Drive')) : null);
+        toast(res.nada ? 'Nada a converter.' : 'Conversão concluída.');
+        await carregarFmt(msg);
+      } catch (er) { toast(er.message, true); await carregarFmt(h('div', { class: 'aviso erro' }, er.message)); }
+    };
+    fmt.append(h('div', { class: 'acoes-linha', style: { marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' } },
+      temCol ? h('button', { class: 'btn', type: 'button', onclick: ev => converter(ev, 'compactado') }, 'Compactar agora') : null,
+      temCp ? h('button', { class: 'btn sec', type: 'button', onclick: ev => converter(ev, 'colunas') }, 'Voltar ao formato de colunas') : null));
+  }
+  carregarFmt();
+  return h('div', { class: 'painel' }, h('h2', {}, 'Planilha de dados'),
+    h('p', { class: 'sub' }, 'Compras no cartão, pix/débito e notificações podem ficar compactadas: cada registro ocupa 2 células da planilha em vez de 11 a 17, e o app lê esses dados mais rápido. Compactadas, essas abas não são para ler nem editar à mão (a exportação em CSV continua igual).'),
+    h('p', { class: 'dica' }, 'A conversão faz antes uma cópia de segurança da planilha inteira, confere cada registro e só então troca a aba. Leva até 1 minuto. Dá para voltar ao formato de colunas quando quiser.'), fmt);
 }
 function render(alvo, { perfil }) {
   const nome = h('input', { type: 'text', value: perfil.nome, maxlength: 80 }), msgNome = h('div', { class: 'erro-txt', role: 'alert' });
@@ -69,6 +107,7 @@ function render(alvo, { perfil }) {
           : h('div', { class: 'aviso info' }, 'Ninguém mais tem conta ainda. Envie o link deste app para a outra pessoa: na tela de entrada, ela clica em “Criar conta”. O app aceita só duas contas.')),
       painelAvisos(perfil),
       painelSite(),
+      painelPlanilha(),
       h('div', { class: 'painel' }, h('h2', {}, 'Limites por categoria'), h('p', { class: 'sub' }, 'Defina um teto mensal para as categorias que quer controlar. O Início mostra a barra de cada uma e o app avisa por e-mail aos 80% e aos 100%.'),
         h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_resumo.gerenciarLimites() }, ico('editar'), 'Definir limites')),
       h('div', { class: 'painel' }, h('h2', {}, 'Como o app funciona'),

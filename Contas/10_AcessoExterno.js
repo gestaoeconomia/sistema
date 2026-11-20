@@ -9,6 +9,7 @@ var ACESSO_EXT = (function () {
     var u = String(b.externa || '').trim(), p = D.props();
     if (u && !/^https:\/\/[^\s<>"']{4,400}$/i.test(u)) throw erro_(400, 'Site do app: informe um endereço que comece com https://');
     if (u) p.setProperty('URL_EXTERNA', u); else p.deleteProperty('URL_EXTERNA');
+    D.propLocal('URL_EXTERNA', u || null);   // V1.4: o retrato das propriedades desta requisição fica igual ao gravado
     D.auditar(email, u ? 'Cadastrou o endereço do site do app' : 'Removeu o endereço do site do app', 'config', 'URL_EXTERNA', { url: u || null });
     return info();
   }
