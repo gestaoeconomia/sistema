@@ -59,7 +59,7 @@ function analisarUrl_(u) {
 function api(req) {
   var travou = false, lock = null;
   try {
-    D.reiniciarMemoria(); A.usarToken(req && req.t);
+    D.reiniciarMemoria(); A.usarToken(req && req.t); A.usarAparelho(req && req.dv);
     if (!req || typeof req !== 'object' || typeof req.u !== 'string' || ['GET', 'POST', 'PUT', 'DELETE'].indexOf(req.m) < 0 || req.u.indexOf('/api/') !== 0 || req.u.length > 4000) throw erro_(400, 'Requisição inválida.');
     if (typeof req.raw === 'string' && req.raw.length > 4e6) throw erro_(413, 'Arquivo grande demais (limite de ~2 MB).');
     var url = analisarUrl_(req.u), alvo = null, args = [];

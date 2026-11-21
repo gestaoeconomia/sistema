@@ -586,4 +586,80 @@ input:focus,select:focus,textarea:focus{background:#fff;box-shadow:0 0 0 4px rgb
 .abas-ios .aba-ico .selo{position:absolute;top:-5px;right:-12px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:#F28C38;color:#08303A;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid rgba(255,255,255,.9)}
 .sino-lista{background:rgba(250,252,252,.92);-webkit-backdrop-filter:saturate(180%) blur(28px);backdrop-filter:saturate(180%) blur(28px);border-color:rgba(255,255,255,.8);border-radius:18px}
 @media(max-width:860px){.sino-lista{top:calc(58px + var(--topo-seguro))}.topo .trilha{min-width:0;overflow:hidden}.topo .trilha b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topo .btn.mini{flex-shrink:0}}
+
+/* ================= V1.5: busca, filtros, desfazer, vencimentos, previsão/teto, assinaturas, fechamento, modo discreto ================= */
+.so-icone{padding-left:9px!important;padding-right:9px!important}
+.olho[aria-pressed="true"]{background:var(--tangerina-claro);color:var(--tangerina-texto);border-color:transparent}
+.toast.com-acao{display:flex;align-items:center;gap:14px}
+.toast-btn{background:none;border:0;color:#7FD3E6;font-weight:700;font-size:13.5px;cursor:pointer;padding:4px 2px;text-decoration:underline;text-underline-offset:3px}
+.toast-btn:hover{color:#fff}
+.dica.sugerida{display:flex;align-items:center;gap:4px;margin-top:4px;color:var(--acento)}
+.dica.sugerida .ico{width:13px;height:13px}
+.barra-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;padding:8px 10px;border:1px solid var(--linha);border-radius:12px;background:rgba(255,255,255,.55)}
+.barra-filtro>.ico{color:var(--tinta-3)}
+.barra-filtro input.filtro-txt{flex:1 1 180px;min-width:140px;border:0;background:transparent;padding:6px 4px;font-size:14px}
+.barra-filtro input.filtro-txt:focus{outline:none}
+.barra-filtro select{width:auto;flex:0 1 auto;padding:6px 8px;font-size:13px}
+.busca-form{display:grid;gap:10px}
+.busca-linha{display:flex;align-items:center;gap:10px}
+.busca-linha>.ico{width:22px;height:22px;color:var(--tinta-3);flex:none}
+.busca-grande{flex:1;font-size:17px!important;padding:12px 14px!important}
+.busca-form select{width:auto}
+.liberacoes{margin:0 0 12px}
+.liberacoes .acoes-linha{margin-top:6px}
+.chip.libera{background:var(--verde-bg);color:#17553F}
+.chip.libera .ico{width:12px;height:12px}
+.chip.fechado{margin-left:8px;background:rgba(255,255,255,.18);color:inherit}
+.chip.fechado .ico{width:11px;height:11px}
+.aviso.fechado{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#EEF1F4;border-color:var(--linha-forte);color:var(--tinta-2)}
+.aviso.fechar-mes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.aviso.mini{padding:6px 10px;margin:6px 0;font-size:12.5px}
+.valor-pos{color:var(--verde);font-weight:600}
+/* previsão e teto */
+.painel.previsao .prev-num .r{font-size:12.5px;color:var(--tinta-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.painel.previsao .prev-num .v{font-family:var(--fonte-titulo);font-size:30px;font-weight:800;margin:2px 0 4px}
+.painel.previsao .prev-num .d{color:var(--tinta-2);font-size:13px;margin-top:2px}
+.painel.previsao .teto{margin-top:14px;padding-top:12px;border-top:1px solid var(--linha)}
+.painel.previsao.vazio-prev .teto,.painel.previsao .prev-num+.teto:empty{border:0}
+.teto-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.barra-teto{position:relative;height:14px;border-radius:99px;background:#EEF1F4;overflow:visible;margin:4px 0 6px}
+.barra-teto i{display:block;height:100%;border-radius:99px;background:var(--verde)}
+.barra-teto.ambar i{background:var(--tangerina)}
+.barra-teto.vermelho i{background:var(--vermelho)}
+.barra-teto .marca-prev{position:absolute;top:-4px;bottom:-4px;width:3px;border-radius:2px;background:var(--tinta-2);transform:translateX(-1px)}
+.teto .d{color:var(--tinta-2);font-size:13px}
+/* assinaturas */
+.cartoes-assin{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.assin{border:1px solid var(--linha);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.6);display:grid;gap:6px}
+.assin.subiu{border-color:#F2D9A8}
+.assin-topo{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.assin-topo .valor{font-weight:700;white-space:nowrap}
+/* vencimentos */
+.calendario .cal-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-sem{font-size:11.5px;font-weight:700;color:var(--tinta-3);text-transform:uppercase;text-align:center;padding-bottom:2px}
+.cal-dia{min-height:86px;border:1px solid var(--linha);border-radius:10px;padding:5px 6px;background:rgba(255,255,255,.55);overflow:hidden}
+.cal-dia.vazio{border:0;background:none}
+.cal-dia.hoje{border-color:var(--acento);box-shadow:inset 0 0 0 1px var(--acento)}
+.cal-dia.atraso{background:var(--vermelho-bg)}
+.cal-n{font-size:12px;font-weight:700;color:var(--tinta-2);margin-bottom:3px}
+.cal-item{font-size:11px;line-height:1.25;padding:2px 5px;border-radius:6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;background:var(--tangerina-claro);color:var(--tangerina-texto)}
+.cal-item span{font-weight:500}
+.cal-item.pago,.cal-item.entrada{background:var(--verde-bg);color:#17553F}
+.cal-item.atrasado{background:var(--vermelho);color:#fff}
+.cal-item.hoje{background:var(--tangerina);color:#fff}
+.cal-mais{font-size:11px;color:var(--tinta-3)}
+.calendario .legenda{margin-top:10px}
+.chip.venc.pago,.chip.venc.recebido{background:var(--verde-bg);color:#17553F}
+.chip.venc.atrasado{background:var(--vermelho-bg);color:var(--vermelho)}
+.chip.venc.hoje,.chip.venc.a_vencer{background:var(--tangerina-claro);color:var(--tangerina-texto)}
+@media (max-width:760px){
+  .calendario{display:none}
+  .busca-linha .btn{padding-left:12px;padding-right:12px}
+  .barra-filtro select{flex:1 1 45%}
+  .topo .so-icone{display:none}
+  .topo .so-icone.olho{display:inline-flex}
+}
+/* celular estreito: o título da tela já aparece grande logo abaixo — o topo fica só com os botões */
+@media (max-width:430px){.topo .trilha b{font-size:0}}
+@media print{.barra-filtro,.toast{display:none!important}}
 </style>

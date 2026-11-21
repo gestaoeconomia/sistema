@@ -37,6 +37,8 @@ var AV = (function () {
     return P.primeiroNome(pend.devedor.nome) + ' deve ' + brl(pend.valor) + ' a você';
   }
   /** Itens de lembrete de hoje para uma pessoa. teste=true ignora o "já avisei" e não marca nada. */
+  /** V1.5: situação do teto geral do mês (sua parte dos gastos × teto definido). */
+  function tetoDe(email, mes) { if (!PREV.teto(email)) return null; var idx = R.indice(); return PREV.situacaoTeto(email, PN.suaParte(idx, mes, email).total, null); }
   function lembretesDe(u, hoje, teste) {
     var pr = prefs(u.email), out = [], novas = [], ate = somarDias(hoje, 3), mes = hoje.slice(0, 7), meses = [mes, U.somarMeses(mes, 1)];
     var add = function (chave, texto) { if (!teste && jaAvisou(chave)) return; out.push(texto); novas.push(chave); };
@@ -47,7 +49,7 @@ var AV = (function () {
           add('fat|' + f.id + '|' + m + '|' + u.email, 'Fatura <b>' + esc(f.nome) + '</b> vence ' + (f.vencimento === hoje ? '<b>hoje</b>' : 'em ' + dm(f.vencimento)) + ': <b>' + brl(f.total) + '</b>');
         });
         R.gastosFixosDoMes(m, u.email).forEach(function (x) {
-          if (x.pago_por !== u.email || x.data < hoje || x.data > ate) return;
+          if (x.pago_por !== u.email || x.data < hoje || x.data > ate || VENC.pagamento(x.id, m)) return;   // V1.5: já marcado como pago
           add('fixo|' + x.id + '|' + m + '|' + u.email, 'Gasto fixo <b>' + esc(x.descricao) + '</b> (' + esc({ PIX: 'pix', DEBITO: 'débito', DINHEIRO: 'dinheiro' }[x.forma] || x.forma) + ') vence ' + (x.data === hoje ? '<b>hoje</b>' : 'em ' + dm(x.data)) + ': <b>' + brl(x.valor) + '</b>');
         });
       });
@@ -59,6 +61,8 @@ var AV = (function () {
       }
     }
     if (pr.limites) {
+      var tt = tetoDe(u.email, mes);   // V1.5: teto geral do mês
+      if (tt && (tt.nivel === 'atencao' || tt.nivel === 'estourou')) add('orc|' + u.email + '|' + mes + '|' + tt.nivel, (tt.nivel === 'estourou' ? 'Você passou do <b>teto do mês</b>' : 'Atenção ao <b>teto do mês</b>') + ': ' + brl(tt.gasto) + ' de ' + brl(tt.teto) + ' (' + String(tt.pct).replace('.', ',') + '%).');
       PN.situacaoLimites(R.indice(), mes, u.email).forEach(function (l) {
         if (l.nivel === 'ok') return;
         add('lim|' + l.id + '|' + mes + '|' + l.nivel, (l.nivel === 'estourou' ? 'Limite estourado' : 'Atenção ao limite') + ' em <b>' + esc(l.categoria) + '</b>: ' + brl(l.gasto) + ' de ' + brl(l.teto) + ' (' + String(l.pct).replace('.', ',') + '%).');
@@ -142,13 +146,18 @@ var AV = (function () {
           titulo: (venceu ? 'Fatura vencida: ' : 'Fatura ') + f.nome, texto: (venceu ? 'Venceu em ' + dm(f.vencimento) : f.vencimento === hoje ? 'Vence hoje' : 'Vence em ' + dm(f.vencimento)) + ' · ' + brl(f.total) + (venceu ? ' · se já pagou, marque como paga' : ''), data: f.vencimento });
       });
     });
-    [mes, U.somarMeses(mes, 1)].forEach(function (m) {
+    [U.somarMeses(mes, -1), mes, U.somarMeses(mes, 1)].forEach(function (m) {
       R.gastosFixosDoMes(m, email).forEach(function (x) {
-        if (x.pago_por !== email || x.data < hoje || x.data > ate) return;
-        out.push({ tipo: 'fixo', nivel: x.data === hoje ? 'alto' : 'medio', rota: 'fixos', query: {}, titulo: 'Gasto fixo: ' + x.descricao,
-          texto: (x.data === hoje ? 'Vence hoje' : 'Vence em ' + dm(x.data)) + ' · ' + brl(x.valor) + ' (' + ({ PIX: 'pix', DEBITO: 'débito', DINHEIRO: 'dinheiro' }[x.forma] || x.forma) + ')', data: x.data });
+        // V1.5: os já marcados como pagos saem; os vencidos há até 10 dias e não marcados aparecem como atrasados
+        if (x.pago_por !== email || x.data < desde || x.data > ate || VENC.pagamento(x.id, m)) return;
+        var venceu = x.data < hoje;
+        out.push({ tipo: venceu ? 'atraso' : 'fixo', nivel: venceu || x.data === hoje ? 'alto' : 'medio', rota: 'vencimentos', query: { mes: m }, titulo: (venceu ? 'Gasto fixo atrasado: ' : 'Gasto fixo: ') + x.descricao,
+          texto: (venceu ? 'Venceu em ' + dm(x.data) : x.data === hoje ? 'Vence hoje' : 'Vence em ' + dm(x.data)) + ' · ' + brl(x.valor) + ' (' + ({ PIX: 'pix', DEBITO: 'débito', DINHEIRO: 'dinheiro' }[x.forma] || x.forma) + ')' + (venceu ? ' · se já pagou, marque como pago' : ''), data: x.data });
       });
     });
+    var tt = tetoDe(email, mes);
+    if (tt && tt.nivel !== 'ok') out.push({ tipo: 'limite', nivel: tt.nivel === 'estourou' ? 'alto' : 'medio', rota: 'resumo', query: {}, titulo: tt.nivel === 'estourou' ? 'Passou do teto do mês' : tt.nivel === 'previsao' ? 'No ritmo atual, vai passar do teto' : 'Perto do teto do mês',
+      texto: brl(tt.gasto) + ' de ' + brl(tt.teto) + ' (' + String(tt.pct).replace('.', ',') + '%) em ' + U.rotuloMes(mes), data: hoje });
     PN.situacaoLimites(R.indice(), mes, email).forEach(function (l) {
       if (l.nivel === 'ok') return;
       out.push({ tipo: 'limite', nivel: l.nivel === 'estourou' ? 'alto' : 'medio', rota: 'resumo', query: {}, titulo: (l.nivel === 'estourou' ? 'Limite estourado: ' : 'Perto do limite: ') + l.categoria,

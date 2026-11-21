@@ -29,7 +29,11 @@ const limpar = el => { while (el.firstChild) el.removeChild(el.firstChild); retu
 const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
 const fmtDataCurta = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
 const fmtN = (n, c = 0) => n == null ? '—' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
-const brl = v => (Number(v) < 0 ? '− ' : '') + 'R$ ' + fmtN(Math.abs(Number(v) || 0), 2);
+// V1.5: modo discreto — os valores aparecem como "R$ ••••" (a escolha fica guardada neste aparelho)
+let discreto = false; try { discreto = localStorage.getItem('cc_discreto') === '1'; } catch (_) {}
+const modoDiscreto = () => discreto;
+function definirDiscreto(sim) { discreto = !!sim; try { localStorage.setItem('cc_discreto', sim ? '1' : '0'); } catch (_) {} document.documentElement.classList.toggle('discreto', discreto); }
+const brl = v => discreto ? 'R$ ••••' : (Number(v) < 0 ? '− ' : '') + 'R$ ' + fmtN(Math.abs(Number(v) || 0), 2);
 const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -94,12 +98,19 @@ const ICONES = {
   sino: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   recolher: 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
   lupa: 'M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3',
+  olho: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 100-6 3 3 0 000 6z',
+  olhoX: 'M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4.2M6.6 6.6A17 17 0 002 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2',
+  calendario: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 10h18M8 3v4M16 3v4',
+  cadeado: 'M6 11h12a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-8a1 1 0 011-1zM8 11V7a4 4 0 018 0v4',
+  copiar: 'M9 9h10a1 1 0 011 1v10a1 1 0 01-1 1H9a1 1 0 01-1-1V10a1 1 0 011-1zM5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1',
+  etiqueta: 'M3 3h8l10 10-8 8L3 11zM7.5 7.5h.01',
+  desfazer: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3',
 };
 function ico(nome, extra) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true');
   const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', ICONES[nome] || ICONES.info); s.append(p); return s;
 }
-return { h, limpar, fmtData, fmtDataCurta, fmtN, brl, hoje, MESES, cap, rotuloMes, rotuloMesCurto, somarMeses, qs, semAcento, iniciais, primeiroNome, lerValor, valorEdicao, ico };
+return { h, limpar, fmtData, fmtDataCurta, fmtN, brl, modoDiscreto, definirDiscreto, hoje, MESES, cap, rotuloMes, rotuloMesCurto, somarMeses, qs, semAcento, iniciais, primeiroNome, lerValor, valorEdicao, ico };
 })();
 </script>
 <script>/* api */
@@ -122,7 +133,16 @@ function rpcFetch(req) {
     .catch(e => { throw new ErroApi(e && e.name === 'AbortError' ? 'O servidor não respondeu em 90 segundos. Atualize a página e tente de novo.' : 'Sem conexão com o servidor. Verifique a internet e tente novamente.', 0); })
     .finally(() => clearTimeout(t));
 }
+/** V1.5: id aleatório deste navegador (não é segredo): o servidor limita tentativas de senha por aparelho. */
+let aparelhoId = '';
+function idAparelho() {
+  if (aparelhoId) return aparelhoId;
+  try { aparelhoId = localStorage.getItem('cc_aparelho') || ''; } catch (_) {}
+  if (!/^[A-Za-z0-9_-]{12,64}$/.test(aparelhoId)) { const b = new Uint8Array(16); try { crypto.getRandomValues(b); } catch (_) { for (let i = 0; i < 16; i++) b[i] = Math.random() * 256; } aparelhoId = Array.from(b, x => x.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem('cc_aparelho', aparelhoId); } catch (_) {} }
+  return aparelhoId;
+}
 function rpc(req) {
+  req.dv = idAparelho();
   if (window.API_URL) return rpcFetch(req);
   return new Promise((resolve, reject) => {
     if (!(window.google && google.script && google.script.run)) return reject(new ErroApi('Este aplicativo precisa ser aberto pelo link do App da Web (Apps Script).', 0));
@@ -260,6 +280,59 @@ const __m_ui = (() => {
 const { h, ico, limpar, rotuloMes, somarMeses, hoje } = __m_util;
 const { estado } = __m_api;
 function toast(msg, erro) { const t = h('div', { class: 'toast' + (erro ? ' erro' : ''), role: erro ? 'alert' : 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => t.remove(), erro ? 7000 : 3800); }
+/** V1.5: aviso com um botão (ex.: "Desfazer"), que fica ~10 s na tela. */
+function toastAcao(msg, rotulo, acao, ms = 10000) {
+  let feito = false; const t = h('div', { class: 'toast com-acao', role: 'status' }, h('span', {}, msg),
+    h('button', { type: 'button', class: 'toast-btn', onclick: async () => { if (feito) return; feito = true; t.remove(); try { await acao(); } catch (e) { toast(e.message, true); } } }, rotulo));
+  document.getElementById('toasts').append(t); setTimeout(() => t.remove(), ms); return t;
+}
+/** V1.5: depois de excluir, oferece "Desfazer" por alguns segundos (o servidor guarda o registro por 15 min). */
+function aposExcluir(r, msg, aoMudar) {
+  if (!r || !r.desfazer) { toast(msg); return; }
+  toastAcao(msg, 'Desfazer', async () => { const x = await __m_api.POST('/api/desfazer', { token: r.desfazer }); toast(x.mensagem || 'Restaurado.'); __m_api.carregarDominios(true); aoMudar && aoMudar(); });
+}
+/** Mesmas regras do servidor para comparar descrições (sem acento, sem números e palavras como "compra", "pix", "parc"). */
+const PARAR_ = new Set('parc parcela de da do das dos em e com pg pag pagto pagamento compra pix transferencia transf enviado enviada recebido debito credito cartao ltda sa me eireli br www online loja no na para ao a o'.split(' '));
+const chaveDesc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(t => t.length >= 2 && !PARAR_.has(t) && !/^\d+$/.test(t) && !/^\d+x$/.test(t));
+/** Categoria provável para a descrição: igual a algo já lançado, senão pela primeira palavra (histórico ou lista inicial). */
+function sugerirCategoria(dom, desc) {
+  const sg = dom && dom.sugestoes; if (!sg) return ''; const tk = chaveDesc(desc); if (!tk.length) return '';
+  return sg.f[tk.slice(0, 3).join(' ')] || sg.p[tk[0]] || tk.slice(1).map(t => sg.p[t]).find(Boolean) || '';
+}
+/** V1.5: enquanto a descrição é digitada, preenche a categoria (se ainda estiver vazia ou tiver sido sugerida) e avisa que foi sugestão. */
+function ligarSugestao(desc, caixaCat, dom) {
+  const inp = caixaCat.querySelector('input'); let auto = !inp.value, t = null;
+  const dica = h('div', { class: 'dica sugerida oculto' }, ico('etiqueta'), ' Categoria sugerida pelo histórico — troque se não for essa.'); caixaCat.append(dica);
+  inp.addEventListener('input', () => { auto = !inp.value; dica.classList.add('oculto'); });
+  const tentar = () => { if (!auto) return; const c = sugerirCategoria(dom, desc.value); if (c && c !== inp.value) { inp.value = c; dica.classList.remove('oculto'); } else if (!c && inp.value) { inp.value = ''; dica.classList.add('oculto'); } };
+  desc.addEventListener('input', () => { clearTimeout(t); t = setTimeout(tentar, 250); }); desc.addEventListener('change', tentar);
+  if (desc.value && !inp.value) tentar();
+}
+/**
+ * V1.5: filtros de uma lista (texto, categoria, divisão e quem pagou), com o total do que está filtrado.
+ * aoMudar() redesenha a lista; aplicar(itens) devolve os itens que passam.
+ */
+function barraFiltro({ itens, campos = {}, perfil, aoMudar }) {
+  const txt = h('input', { type: 'search', placeholder: 'Filtrar por descrição…', 'aria-label': 'Filtrar por descrição', class: 'filtro-txt' });
+  const cats = [...new Set(itens.map(i => i.categoria || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const cat = h('select', { 'aria-label': 'Categoria' }, h('option', { value: '' }, 'Todas as categorias'), cats.map(c => h('option', { value: c }, c)), itens.some(i => !i.categoria) ? h('option', { value: '__sem' }, 'Sem categoria') : null);
+  const div = h('select', { 'aria-label': 'Divisão' }, h('option', { value: '' }, 'Todas as divisões'), h('option', { value: 'DIVIDIDO' }, 'Divididos'), h('option', { value: 'INDIVIDUAL' }, 'Individuais'), h('option', { value: 'OUTRO' }, 'Todo do outro'));
+  const limparBt = h('button', { type: 'button', class: 'btn sec mini oculto', onclick: () => { txt.value = ''; cat.value = ''; div.value = ''; mudou(); } }, ico('x'), 'Limpar');
+  let t = null; const mudou = () => { limparBt.classList.toggle('oculto', !(txt.value || cat.value || div.value)); aoMudar(); };
+  txt.addEventListener('input', () => { clearTimeout(t); t = setTimeout(mudou, 200); }); cat.addEventListener('change', mudou); div.addEventListener('change', mudou);
+  const el = h('div', { class: 'barra-filtro' }, ico('lupa'), txt, cats.length ? cat : null, campos.divisao === false ? null : div, limparBt);
+  const ativo = () => !!(txt.value || cat.value || div.value);
+  const aplicar = l => {
+    const tk = chaveDesc(txt.value), bruto = txt.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return l.filter(i => {
+      if (cat.value === '__sem' ? !!i.categoria : cat.value && i.categoria !== cat.value) return false;
+      if (div.value && i.divisao !== div.value) return false;
+      if (bruto) { const alvo = (i.descricao + ' ' + (i.categoria || '') + ' ' + (i.obs || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (!(tk.length ? tk.every(x => alvo.includes(x)) : alvo.includes(bruto))) return false; }
+      return true;
+    });
+  };
+  return { el, aplicar, ativo };
+}
 
 /** Janela modal. corpo: Node. botoes: [{texto, classe, onclick(fechar)}]. Devolve {fechar, el}. */
 function modal({ titulo, corpo, botoes = [], larga = false, aoFechar }) {
@@ -348,6 +421,6 @@ function campoCategoria(dom, valor) {
   const id = 'cats-' + Math.random().toString(36).slice(2, 8);
   return h('div', {}, h('input', { type: 'text', list: id, value: valor || '', maxlength: 40, placeholder: 'ex.: Mercado' }), h('datalist', { id }, dom.categorias.map(c => h('option', { value: c }))));
 }
-return { toast, modal, confirmar, campo, select, segmentos, tabela, cabPagina, seletorMes, chipDivisao, chipForma, FORMAS, opcoesDivisao, campoCategoria };
+return { toast, toastAcao, aposExcluir, ligarSugestao, sugerirCategoria, chaveDesc, barraFiltro, modal, confirmar, campo, select, segmentos, tabela, cabPagina, seletorMes, chipDivisao, chipForma, FORMAS, opcoesDivisao, campoCategoria };
 })();
 </script>

@@ -14,6 +14,7 @@ var PN = (function () {
   function mesDe(v) { return String(v == null ? '' : v).slice(0, 7); }
   function noMes(r, mes) { var ini = mesDe(r.inicio), fim = mesDe(r.fim); return U.mesValido(ini) && mes >= ini && (!U.mesValido(fim) || mes <= fim); }
   function rendasDoMes(mes) { return D.todos('rendas').filter(function (r) { return noMes(r, mes); }); }
+  function rendasDe(mes, email) { return rendasDoMes(mes).filter(function (r) { return r.pessoa === email; }); }
   function rendaPorPessoa(mes) { var t = {}; rendasDoMes(mes).forEach(function (r) { t[r.pessoa] = (t[r.pessoa] || 0) + (U.centavos(r.valor) || 0); }); return t; }
   function normCat(c) { return String(c || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
@@ -89,14 +90,18 @@ var PN = (function () {
     var prox = U.somarMeses(mes, 1), comprometido = (idx[prox] || []).filter(function (it) { return it.origem === 'CARTAO' || it.recorrente; }).reduce(function (s, it) { return s + R.minhaParte(it, ve); }, 0);
     var rendaProx = rendaPorPessoa(prox)[ve] || 0, hoje = D.hojeISO();
     var contas = R.faturasDoMes(mes, ve).filter(function (f) { return f.titular === ve && f.total > 0; }).map(function (f) { return { tipo: 'FATURA', descricao: 'Fatura ' + f.nome, dono: f.titular, dono_nome: f.titular_nome, data: f.vencimento, valor: f.total, paga: f.paga }; })
-      .concat(R.gastosFixosDoMes(mes, ve).filter(function (x) { return x.pago_por === ve; }).map(function (x) { return { tipo: 'FIXO', descricao: x.descricao, dono: x.pago_por, dono_nome: P.nomeDe(x.pago_por), data: x.data, valor: x.valor, paga: x.data <= hoje }; }))
+      .concat(R.gastosFixosDoMes(mes, ve).filter(function (x) { return x.pago_por === ve; }).map(function (x) { return { tipo: 'FIXO', descricao: x.descricao, dono: x.pago_por, dono_nome: P.nomeDe(x.pago_por), data: x.data, valor: x.valor, id: x.id, paga: !!VENC.pagamento(x.id, mes) }; }))   // V1.5: pago de verdade (marcado em Vencimentos)
       .sort(function (a, b) { return ORD_TXT_(String(a.data), String(b.data)); });
+    var pv = null; try { pv = PREV.previsao(idx, mes, ve, parte.total); } catch (e) { pv = null; }
     return { mes: mes, rotulo: U.rotuloMes(mes), tem_rendas: D.todos('rendas').length > 0, voce: voce, parceiro: parceiro,
       casal: { renda: U.reais(Object.keys(renda).reduce(function (s, k) { return s + renda[k]; }, 0)), metas: metas.total_por_mes },
       categorias: categorias, limites: situacaoLimites(idx, mes, ve),
       comparacao: { rotulo_anterior: U.rotuloMes(U.somarMeses(mes, -1)), gasto_anterior: U.reais(antes), gasto_atual: U.reais(parte.total), variacao: antes > 0 ? Math.round((parte.total - antes) / antes * 1000) / 10 : null },
       proximo: { mes: prox, rotulo: U.rotuloMes(prox), comprometido: U.reais(comprometido), renda: U.reais(rendaProx), pct: rendaProx > 0 ? Math.round(comprometido / rendaProx * 1000) / 10 : null },
-      contas: contas, evolucao: evolucao(mes, ve, idx), dias_no_mes: new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate() };
+      contas: contas, evolucao: evolucao(mes, ve, idx),
+      // V1.5: previsão do fim do mês (mês atual) e teto geral de gastos do mês
+      assinaturas: mes === U.mesAtual() ? (function () { try { return ASSIN.resumo(ve); } catch (e) { return null; } })() : null,
+      previsao: pv, teto: PREV.situacaoTeto(ve, parte.total, pv ? U.centavos(pv.previsto) : null), dias_no_mes: new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 0)).getUTCDate() };
   }
 
   // ---------- cadastro de ganhos ----------
@@ -124,6 +129,6 @@ var PN = (function () {
     return { mes: mes, rotulo: U.rotuloMes(mes), itens: itens, total: U.reais(Object.keys(tot).reduce(function (s, k) { return s + tot[k]; }, 0)),
       pessoas: P.ativos().map(function (u) { return { email: u.email, nome: u.nome, total: U.reais(tot[u.email] || 0) }; }) };
   }
-  return { painel: painel, capacidade: capacidade, rendaPorPessoa: rendaPorPessoa, validar: validar, listar: listar, noMes: noMes, suaParte: suaParte,
+  return { rendasDe: rendasDe, painel: painel, capacidade: capacidade, rendaPorPessoa: rendaPorPessoa, validar: validar, listar: listar, noMes: noMes, suaParte: suaParte,
     situacaoLimites: situacaoLimites, validarLimite: validarLimite, evolucao: evolucao, reservaSugerida: reservaSugerida, aportesNoMes: aportesNoMes, normCat: normCat };
 })();

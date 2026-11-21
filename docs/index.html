@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" sizes="167x167" href="icones/icone-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="icones/icone-152.png">
 <script>window.SITE_ESTATICO = true;</script>
-<script src="config.js?v=V1.4%20-%2020%2F11%2F2026"></script><meta name="referrer" content="no-referrer">
+<script src="config.js?v=V1.5%20-%2020%2F11%2F2026"></script><meta name="referrer" content="no-referrer">
 <title>Gestão Financeira</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -603,6 +603,82 @@ input:focus,select:focus,textarea:focus{background:#fff;box-shadow:0 0 0 4px rgb
 .abas-ios .aba-ico .selo{position:absolute;top:-5px;right:-12px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:#F28C38;color:#08303A;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1;border:2px solid rgba(255,255,255,.9)}
 .sino-lista{background:rgba(250,252,252,.92);-webkit-backdrop-filter:saturate(180%) blur(28px);backdrop-filter:saturate(180%) blur(28px);border-color:rgba(255,255,255,.8);border-radius:18px}
 @media(max-width:860px){.sino-lista{top:calc(58px + var(--topo-seguro))}.topo .trilha{min-width:0;overflow:hidden}.topo .trilha b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topo .btn.mini{flex-shrink:0}}
+
+/* ================= V1.5: busca, filtros, desfazer, vencimentos, previsão/teto, assinaturas, fechamento, modo discreto ================= */
+.so-icone{padding-left:9px!important;padding-right:9px!important}
+.olho[aria-pressed="true"]{background:var(--tangerina-claro);color:var(--tangerina-texto);border-color:transparent}
+.toast.com-acao{display:flex;align-items:center;gap:14px}
+.toast-btn{background:none;border:0;color:#7FD3E6;font-weight:700;font-size:13.5px;cursor:pointer;padding:4px 2px;text-decoration:underline;text-underline-offset:3px}
+.toast-btn:hover{color:#fff}
+.dica.sugerida{display:flex;align-items:center;gap:4px;margin-top:4px;color:var(--acento)}
+.dica.sugerida .ico{width:13px;height:13px}
+.barra-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;padding:8px 10px;border:1px solid var(--linha);border-radius:12px;background:rgba(255,255,255,.55)}
+.barra-filtro>.ico{color:var(--tinta-3)}
+.barra-filtro input.filtro-txt{flex:1 1 180px;min-width:140px;border:0;background:transparent;padding:6px 4px;font-size:14px}
+.barra-filtro input.filtro-txt:focus{outline:none}
+.barra-filtro select{width:auto;flex:0 1 auto;padding:6px 8px;font-size:13px}
+.busca-form{display:grid;gap:10px}
+.busca-linha{display:flex;align-items:center;gap:10px}
+.busca-linha>.ico{width:22px;height:22px;color:var(--tinta-3);flex:none}
+.busca-grande{flex:1;font-size:17px!important;padding:12px 14px!important}
+.busca-form select{width:auto}
+.liberacoes{margin:0 0 12px}
+.liberacoes .acoes-linha{margin-top:6px}
+.chip.libera{background:var(--verde-bg);color:#17553F}
+.chip.libera .ico{width:12px;height:12px}
+.chip.fechado{margin-left:8px;background:rgba(255,255,255,.18);color:inherit}
+.chip.fechado .ico{width:11px;height:11px}
+.aviso.fechado{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#EEF1F4;border-color:var(--linha-forte);color:var(--tinta-2)}
+.aviso.fechar-mes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.aviso.mini{padding:6px 10px;margin:6px 0;font-size:12.5px}
+.valor-pos{color:var(--verde);font-weight:600}
+/* previsão e teto */
+.painel.previsao .prev-num .r{font-size:12.5px;color:var(--tinta-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.painel.previsao .prev-num .v{font-family:var(--fonte-titulo);font-size:30px;font-weight:800;margin:2px 0 4px}
+.painel.previsao .prev-num .d{color:var(--tinta-2);font-size:13px;margin-top:2px}
+.painel.previsao .teto{margin-top:14px;padding-top:12px;border-top:1px solid var(--linha)}
+.painel.previsao.vazio-prev .teto,.painel.previsao .prev-num+.teto:empty{border:0}
+.teto-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.barra-teto{position:relative;height:14px;border-radius:99px;background:#EEF1F4;overflow:visible;margin:4px 0 6px}
+.barra-teto i{display:block;height:100%;border-radius:99px;background:var(--verde)}
+.barra-teto.ambar i{background:var(--tangerina)}
+.barra-teto.vermelho i{background:var(--vermelho)}
+.barra-teto .marca-prev{position:absolute;top:-4px;bottom:-4px;width:3px;border-radius:2px;background:var(--tinta-2);transform:translateX(-1px)}
+.teto .d{color:var(--tinta-2);font-size:13px}
+/* assinaturas */
+.cartoes-assin{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.assin{border:1px solid var(--linha);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.6);display:grid;gap:6px}
+.assin.subiu{border-color:#F2D9A8}
+.assin-topo{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.assin-topo .valor{font-weight:700;white-space:nowrap}
+/* vencimentos */
+.calendario .cal-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-sem{font-size:11.5px;font-weight:700;color:var(--tinta-3);text-transform:uppercase;text-align:center;padding-bottom:2px}
+.cal-dia{min-height:86px;border:1px solid var(--linha);border-radius:10px;padding:5px 6px;background:rgba(255,255,255,.55);overflow:hidden}
+.cal-dia.vazio{border:0;background:none}
+.cal-dia.hoje{border-color:var(--acento);box-shadow:inset 0 0 0 1px var(--acento)}
+.cal-dia.atraso{background:var(--vermelho-bg)}
+.cal-n{font-size:12px;font-weight:700;color:var(--tinta-2);margin-bottom:3px}
+.cal-item{font-size:11px;line-height:1.25;padding:2px 5px;border-radius:6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;background:var(--tangerina-claro);color:var(--tangerina-texto)}
+.cal-item span{font-weight:500}
+.cal-item.pago,.cal-item.entrada{background:var(--verde-bg);color:#17553F}
+.cal-item.atrasado{background:var(--vermelho);color:#fff}
+.cal-item.hoje{background:var(--tangerina);color:#fff}
+.cal-mais{font-size:11px;color:var(--tinta-3)}
+.calendario .legenda{margin-top:10px}
+.chip.venc.pago,.chip.venc.recebido{background:var(--verde-bg);color:#17553F}
+.chip.venc.atrasado{background:var(--vermelho-bg);color:var(--vermelho)}
+.chip.venc.hoje,.chip.venc.a_vencer{background:var(--tangerina-claro);color:var(--tangerina-texto)}
+@media (max-width:760px){
+  .calendario{display:none}
+  .busca-linha .btn{padding-left:12px;padding-right:12px}
+  .barra-filtro select{flex:1 1 45%}
+  .topo .so-icone{display:none}
+  .topo .so-icone.olho{display:inline-flex}
+}
+/* celular estreito: o título da tela já aparece grande logo abaixo — o topo fica só com os botões */
+@media (max-width:430px){.topo .trilha b{font-size:0}}
+@media print{.barra-filtro,.toast{display:none!important}}
 </style>
 
 </head>
@@ -650,7 +726,7 @@ window.SPLASH = (function () {
   };
 })()</script>
 <div id="app"></div><div id="toasts" aria-live="polite"></div>
-<script>window.APP_VERSAO = 'V1.4 - 20/11/2026';</script>
+<script>window.APP_VERSAO = 'V1.5 - 20/11/2026';</script>
 <script>
 window.__erros = []; window.addEventListener('error', function (e) {
   try {
@@ -682,7 +758,11 @@ const limpar = el => { while (el.firstChild) el.removeChild(el.firstChild); retu
 const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
 const fmtDataCurta = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
 const fmtN = (n, c = 0) => n == null ? '—' : Number(n).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
-const brl = v => (Number(v) < 0 ? '− ' : '') + 'R$ ' + fmtN(Math.abs(Number(v) || 0), 2);
+// V1.5: modo discreto — os valores aparecem como "R$ ••••" (a escolha fica guardada neste aparelho)
+let discreto = false; try { discreto = localStorage.getItem('cc_discreto') === '1'; } catch (_) {}
+const modoDiscreto = () => discreto;
+function definirDiscreto(sim) { discreto = !!sim; try { localStorage.setItem('cc_discreto', sim ? '1' : '0'); } catch (_) {} document.documentElement.classList.toggle('discreto', discreto); }
+const brl = v => discreto ? 'R$ ••••' : (Number(v) < 0 ? '− ' : '') + 'R$ ' + fmtN(Math.abs(Number(v) || 0), 2);
 const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -747,12 +827,19 @@ const ICONES = {
   sino: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   recolher: 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
   lupa: 'M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3',
+  olho: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 100-6 3 3 0 000 6z',
+  olhoX: 'M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4.2M6.6 6.6A17 17 0 002 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2',
+  calendario: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 10h18M8 3v4M16 3v4',
+  cadeado: 'M6 11h12a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-8a1 1 0 011-1zM8 11V7a4 4 0 018 0v4',
+  copiar: 'M9 9h10a1 1 0 011 1v10a1 1 0 01-1 1H9a1 1 0 01-1-1V10a1 1 0 011-1zM5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1',
+  etiqueta: 'M3 3h8l10 10-8 8L3 11zM7.5 7.5h.01',
+  desfazer: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3',
 };
 function ico(nome, extra) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true');
   const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', ICONES[nome] || ICONES.info); s.append(p); return s;
 }
-return { h, limpar, fmtData, fmtDataCurta, fmtN, brl, hoje, MESES, cap, rotuloMes, rotuloMesCurto, somarMeses, qs, semAcento, iniciais, primeiroNome, lerValor, valorEdicao, ico };
+return { h, limpar, fmtData, fmtDataCurta, fmtN, brl, modoDiscreto, definirDiscreto, hoje, MESES, cap, rotuloMes, rotuloMesCurto, somarMeses, qs, semAcento, iniciais, primeiroNome, lerValor, valorEdicao, ico };
 })();
 </script>
 <script>/* api */
@@ -775,7 +862,16 @@ function rpcFetch(req) {
     .catch(e => { throw new ErroApi(e && e.name === 'AbortError' ? 'O servidor não respondeu em 90 segundos. Atualize a página e tente de novo.' : 'Sem conexão com o servidor. Verifique a internet e tente novamente.', 0); })
     .finally(() => clearTimeout(t));
 }
+/** V1.5: id aleatório deste navegador (não é segredo): o servidor limita tentativas de senha por aparelho. */
+let aparelhoId = '';
+function idAparelho() {
+  if (aparelhoId) return aparelhoId;
+  try { aparelhoId = localStorage.getItem('cc_aparelho') || ''; } catch (_) {}
+  if (!/^[A-Za-z0-9_-]{12,64}$/.test(aparelhoId)) { const b = new Uint8Array(16); try { crypto.getRandomValues(b); } catch (_) { for (let i = 0; i < 16; i++) b[i] = Math.random() * 256; } aparelhoId = Array.from(b, x => x.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem('cc_aparelho', aparelhoId); } catch (_) {} }
+  return aparelhoId;
+}
 function rpc(req) {
+  req.dv = idAparelho();
   if (window.API_URL) return rpcFetch(req);
   return new Promise((resolve, reject) => {
     if (!(window.google && google.script && google.script.run)) return reject(new ErroApi('Este aplicativo precisa ser aberto pelo link do App da Web (Apps Script).', 0));
@@ -913,6 +1009,59 @@ const __m_ui = (() => {
 const { h, ico, limpar, rotuloMes, somarMeses, hoje } = __m_util;
 const { estado } = __m_api;
 function toast(msg, erro) { const t = h('div', { class: 'toast' + (erro ? ' erro' : ''), role: erro ? 'alert' : 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => t.remove(), erro ? 7000 : 3800); }
+/** V1.5: aviso com um botão (ex.: "Desfazer"), que fica ~10 s na tela. */
+function toastAcao(msg, rotulo, acao, ms = 10000) {
+  let feito = false; const t = h('div', { class: 'toast com-acao', role: 'status' }, h('span', {}, msg),
+    h('button', { type: 'button', class: 'toast-btn', onclick: async () => { if (feito) return; feito = true; t.remove(); try { await acao(); } catch (e) { toast(e.message, true); } } }, rotulo));
+  document.getElementById('toasts').append(t); setTimeout(() => t.remove(), ms); return t;
+}
+/** V1.5: depois de excluir, oferece "Desfazer" por alguns segundos (o servidor guarda o registro por 15 min). */
+function aposExcluir(r, msg, aoMudar) {
+  if (!r || !r.desfazer) { toast(msg); return; }
+  toastAcao(msg, 'Desfazer', async () => { const x = await __m_api.POST('/api/desfazer', { token: r.desfazer }); toast(x.mensagem || 'Restaurado.'); __m_api.carregarDominios(true); aoMudar && aoMudar(); });
+}
+/** Mesmas regras do servidor para comparar descrições (sem acento, sem números e palavras como "compra", "pix", "parc"). */
+const PARAR_ = new Set('parc parcela de da do das dos em e com pg pag pagto pagamento compra pix transferencia transf enviado enviada recebido debito credito cartao ltda sa me eireli br www online loja no na para ao a o'.split(' '));
+const chaveDesc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(t => t.length >= 2 && !PARAR_.has(t) && !/^\d+$/.test(t) && !/^\d+x$/.test(t));
+/** Categoria provável para a descrição: igual a algo já lançado, senão pela primeira palavra (histórico ou lista inicial). */
+function sugerirCategoria(dom, desc) {
+  const sg = dom && dom.sugestoes; if (!sg) return ''; const tk = chaveDesc(desc); if (!tk.length) return '';
+  return sg.f[tk.slice(0, 3).join(' ')] || sg.p[tk[0]] || tk.slice(1).map(t => sg.p[t]).find(Boolean) || '';
+}
+/** V1.5: enquanto a descrição é digitada, preenche a categoria (se ainda estiver vazia ou tiver sido sugerida) e avisa que foi sugestão. */
+function ligarSugestao(desc, caixaCat, dom) {
+  const inp = caixaCat.querySelector('input'); let auto = !inp.value, t = null;
+  const dica = h('div', { class: 'dica sugerida oculto' }, ico('etiqueta'), ' Categoria sugerida pelo histórico — troque se não for essa.'); caixaCat.append(dica);
+  inp.addEventListener('input', () => { auto = !inp.value; dica.classList.add('oculto'); });
+  const tentar = () => { if (!auto) return; const c = sugerirCategoria(dom, desc.value); if (c && c !== inp.value) { inp.value = c; dica.classList.remove('oculto'); } else if (!c && inp.value) { inp.value = ''; dica.classList.add('oculto'); } };
+  desc.addEventListener('input', () => { clearTimeout(t); t = setTimeout(tentar, 250); }); desc.addEventListener('change', tentar);
+  if (desc.value && !inp.value) tentar();
+}
+/**
+ * V1.5: filtros de uma lista (texto, categoria, divisão e quem pagou), com o total do que está filtrado.
+ * aoMudar() redesenha a lista; aplicar(itens) devolve os itens que passam.
+ */
+function barraFiltro({ itens, campos = {}, perfil, aoMudar }) {
+  const txt = h('input', { type: 'search', placeholder: 'Filtrar por descrição…', 'aria-label': 'Filtrar por descrição', class: 'filtro-txt' });
+  const cats = [...new Set(itens.map(i => i.categoria || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const cat = h('select', { 'aria-label': 'Categoria' }, h('option', { value: '' }, 'Todas as categorias'), cats.map(c => h('option', { value: c }, c)), itens.some(i => !i.categoria) ? h('option', { value: '__sem' }, 'Sem categoria') : null);
+  const div = h('select', { 'aria-label': 'Divisão' }, h('option', { value: '' }, 'Todas as divisões'), h('option', { value: 'DIVIDIDO' }, 'Divididos'), h('option', { value: 'INDIVIDUAL' }, 'Individuais'), h('option', { value: 'OUTRO' }, 'Todo do outro'));
+  const limparBt = h('button', { type: 'button', class: 'btn sec mini oculto', onclick: () => { txt.value = ''; cat.value = ''; div.value = ''; mudou(); } }, ico('x'), 'Limpar');
+  let t = null; const mudou = () => { limparBt.classList.toggle('oculto', !(txt.value || cat.value || div.value)); aoMudar(); };
+  txt.addEventListener('input', () => { clearTimeout(t); t = setTimeout(mudou, 200); }); cat.addEventListener('change', mudou); div.addEventListener('change', mudou);
+  const el = h('div', { class: 'barra-filtro' }, ico('lupa'), txt, cats.length ? cat : null, campos.divisao === false ? null : div, limparBt);
+  const ativo = () => !!(txt.value || cat.value || div.value);
+  const aplicar = l => {
+    const tk = chaveDesc(txt.value), bruto = txt.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return l.filter(i => {
+      if (cat.value === '__sem' ? !!i.categoria : cat.value && i.categoria !== cat.value) return false;
+      if (div.value && i.divisao !== div.value) return false;
+      if (bruto) { const alvo = (i.descricao + ' ' + (i.categoria || '') + ' ' + (i.obs || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (!(tk.length ? tk.every(x => alvo.includes(x)) : alvo.includes(bruto))) return false; }
+      return true;
+    });
+  };
+  return { el, aplicar, ativo };
+}
 
 /** Janela modal. corpo: Node. botoes: [{texto, classe, onclick(fechar)}]. Devolve {fechar, el}. */
 function modal({ titulo, corpo, botoes = [], larga = false, aoFechar }) {
@@ -1001,7 +1150,7 @@ function campoCategoria(dom, valor) {
   const id = 'cats-' + Math.random().toString(36).slice(2, 8);
   return h('div', {}, h('input', { type: 'text', list: id, value: valor || '', maxlength: 40, placeholder: 'ex.: Mercado' }), h('datalist', { id }, dom.categorias.map(c => h('option', { value: c }))));
 }
-return { toast, modal, confirmar, campo, select, segmentos, tabela, cabPagina, seletorMes, chipDivisao, chipForma, FORMAS, opcoesDivisao, campoCategoria };
+return { toast, toastAcao, aposExcluir, ligarSugestao, sugerirCategoria, chaveDesc, barraFiltro, modal, confirmar, campo, select, segmentos, tabela, cabPagina, seletorMes, chipDivisao, chipForma, FORMAS, opcoesDivisao, campoCategoria };
 })();
 </script>
 
@@ -1009,7 +1158,7 @@ return { toast, modal, confirmar, campo, select, segmentos, tabela, cabPagina, s
 const __m_pages_resumo = (() => {
 const { h, limpar, brl, fmtData, rotuloMesCurto, iniciais, primeiroNome, ico, lerValor, valorEdicao } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, seletorMes, modal, toast, campo } = __m_ui;
+const { cabPagina, seletorMes, modal, toast, campo, aposExcluir, confirmar } = __m_ui;
 
 /** Frase do acerto do ponto de vista de quem está logado. */
 function fraseAcerto(ac, perfil, valor) {
@@ -1026,8 +1175,40 @@ function blocoAcerto(r, perfil, ir) {
   if (!ac.devido && !ac.pendente) { frase = ['Nada a acertar neste mês']; detalhe = 'Ainda não há gastos divididos, ou os dois lados se compensam.'; zerado = true; }
   else if (!ac.pendente) { frase = ['Contas acertadas ', h('span', { class: 'valor' }, '✓')]; detalhe = `O saldo de ${brl(ac.devido)} já foi acertado.`; zerado = true; }
   else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); detalhe = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : 'Soma das faturas que vencem no mês + pix/débito do mês — só o que foi dividido.'; }
-  return h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Acerto de ' + r.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, detalhe)),
+  return h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Acerto de ' + r.rotulo, r.fechado ? h('span', { class: 'chip fechado', title: 'Mês fechado por ' + primeiroNome(r.fechado.por_nome) }, ico('cadeado'), ' fechado') : null), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, detalhe)),
     h('button', { class: 'btn', type: 'button', onclick: () => ir('acerto') }, ico('balanca'), 'Ver acerto do mês'));
+}
+/**
+ * V1.5: previsão do fim do mês (mês atual) e teto geral de gastos do mês. Só você vê.
+ * Previsão = o que já está no mês + pix/débito do dia a dia no ritmo atual + compras novas que ainda entram na fatura deste mês.
+ */
+function previsaoETeto(pn, recarregar) {
+  const pv = pn.previsao, tt = pn.teto; if (!pv && !tt) return h('div', { class: 'painel previsao vazio-prev' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Teto do mês'), h('p', { class: 'sub' }, 'Defina quanto quer gastar no total por mês (a sua parte). O app avisa aos 80% e aos 100%.')),
+    h('button', { class: 'btn sec', type: 'button', onclick: () => definirTeto(null, recarregar) }, ico('alvo'), 'Definir teto')));
+  const renda = pn.voce.renda, ant = pn.comparacao.gasto_anterior;
+  const blocoPrev = pv ? h('div', { class: 'prev-num' }, h('div', { class: 'r' }, 'Previsão para o fim de ' + pn.rotulo.split(' de ')[0]), h('div', { class: 'v' }, '≈ ' + brl(pv.previsto)),
+    h('div', { class: 'd' }, `já lançado ${brl(pv.lancado)}` + (pv.estimado_pix > 0 ? ` · pix/débito ${pv.base_pix === 'ritmo' ? 'no ritmo do mês' : 'pela média'} +${brl(pv.estimado_pix)}` : '') + (pv.estimado_cartao > 0 ? ` · compras que ainda entram na fatura +${brl(pv.estimado_cartao)}` : '')),
+    h('div', { class: 'd' }, [ant > 0 ? `${pv.previsto > ant ? '▲' : '▼'} ${brl(Math.abs(pv.previsto - ant))} em relação a ${pn.comparacao.rotulo_anterior.split(' de ')[0]}` : null, renda > 0 ? `${String(Math.round(pv.previsto / renda * 1000) / 10).replace('.', ',')}% dos seus ganhos` : null, `faltam ${pv.restantes} dia(s)`].filter(Boolean).join(' · '))) : null;
+  let blocoTeto = null;
+  if (tt) {
+    const pct = Math.min(100, tt.pct), pp = tt.previsto_pct == null ? null : Math.min(100, tt.previsto_pct), cor = tt.nivel === 'estourou' ? 'vermelho' : tt.nivel === 'atencao' || tt.nivel === 'previsao' ? 'ambar' : 'verde';
+    blocoTeto = h('div', { class: 'teto' }, h('div', { class: 'teto-cab' }, h('b', {}, 'Teto do mês: ' + brl(tt.teto)), h('button', { class: 'btn sec mini', type: 'button', onclick: () => definirTeto(tt.teto, recarregar) }, ico('editar'), 'Alterar')),
+      h('div', { class: 'barra-teto ' + cor, title: `Gasto ${brl(tt.gasto)} de ${brl(tt.teto)}` }, h('i', { style: { width: pct + '%' } }), pp != null && pp > pct ? h('b', { class: 'marca-prev', style: { left: pp + '%' }, title: 'Previsão' }) : null),
+      h('div', { class: 'd' }, tt.nivel === 'estourou' ? `Passou do teto em ${brl(-tt.resta)} (${String(tt.pct).replace('.', ',')}%).` : `${String(tt.pct).replace('.', ',')}% usado · restam ${brl(tt.resta)}` + (tt.previsto_pct != null ? ` · previsão: ${String(tt.previsto_pct).replace('.', ',')}%` + (tt.previsto_pct >= 100 ? ' — no ritmo atual, vai passar do teto' : '') : '')));
+  } else blocoTeto = h('div', { class: 'teto' }, h('button', { class: 'btn sec mini', type: 'button', onclick: () => definirTeto(null, recarregar) }, ico('alvo'), 'Definir um teto para o mês'));
+  return h('div', { class: 'painel previsao' }, h('h2', {}, pv ? 'Como o mês deve terminar' : 'Teto do mês'), blocoPrev, blocoTeto);
+}
+function definirTeto(atual, recarregar) {
+  const v = h('input', { type: 'text', inputmode: 'decimal', value: atual ? valorEdicao(atual) : '', placeholder: '0,00' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Teto de gastos do mês', corpo: h('div', {}, h('p', { class: 'dica' }, 'Quanto você quer gastar no total por mês — a sua parte de cartões, pix/débito e gastos fixos (já contando o acerto). Vale para todos os meses. Só você vê.'),
+    campo('Teto por mês (R$)', v, { dica: 'Deixe vazio para tirar o teto.' }), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => { msg.textContent = ''; const n = v.value.trim() ? lerValor(v.value) : ''; if (n !== '' && (isNaN(n) || n <= 0)) { msg.textContent = 'Informe um valor válido.'; return; }
+      try { await PUT('/api/orcamento', { valor: n }); c(); toast(n ? 'Teto definido.' : 'Teto removido.'); recarregar && recarregar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+/** V1.5: assinaturas que subiram de preço (detectadas nos lançamentos repetidos). */
+function avisoAssinaturas(pn, ir) {
+  const a = pn.assinaturas; if (!a || !a.aumentos.length) return null;
+  return h('div', { class: 'aviso atencao' }, ico('alerta'), ' ', a.aumentos.map(x => `${x.descricao} subiu de ${brl(x.de)} para ${brl(x.para)}`).join(' · ') + '. ', h('a', { href: '#/fixos' }, 'Ver assinaturas'));
 }
 /** Seu orçamento: seus ganhos → sua parte dos gastos → sua parte nas metas → disponível. (Privado: o outro não vê.) */
 function orcamento(pn, ir) {
@@ -1105,7 +1286,7 @@ async function gerenciarLimites(aoSalvar) {
         const v = h('input', { type: 'text', inputmode: 'decimal', value: valorEdicao(l.teto), 'aria-label': 'Teto de ' + l.categoria, style: { width: '110px' } });
         return [h('span', {}, l.categoria, h('span', { class: 'dica' }, ` · gasto ${brl(l.gasto)} (${String(l.pct).replace('.', ',')}%)`)),
           h('span', { class: 'acoes-linha' }, v, h('button', { class: 'btn sec mini', type: 'button', title: 'Salvar', onclick: () => { const x = lerValor(v.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(l.id, { valor: x }); } }, ico('ok')),
-            h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { try { await DEL('/api/limites/' + l.id); toast('Limite excluído.'); desenhar(); } catch (e) { msg.textContent = e.message; } } }, ico('lixeira')))];
+            h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { try { const rx = await DEL('/api/limites/' + l.id); aposExcluir(rx, 'Limite excluído.', desenhar); desenhar(); } catch (e) { msg.textContent = e.message; } } }, ico('lixeira')))];
       })) : null,
       h('div', { class: 'form-grade', style: { marginTop: '14px' } }, campo('Categoria', h('div', {}, cat, h('datalist', { id: listaId }, r.categorias.map(c => h('option', { value: c })))), { obrig: true }), campo('Teto por mês (R$)', val, { obrig: true })),
       h('div', { class: 'acoes-linha' }, h('button', { class: 'btn', type: 'button', onclick: () => { const x = lerValor(val.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(null, { categoria: cat.value, valor: x }); } }, ico('mais'), 'Adicionar limite')), msg);
@@ -1172,9 +1353,10 @@ function categorias(pn) {
       h('div', { class: 'dica', style: { marginTop: '6px' } }, 'Dica: preencha a categoria ao lançar para este quadro ficar mais útil.')) : h('div', { class: 'vazio' }, 'Ainda não há gastos neste mês.'));
 }
 function contasDoMes(pn, perfil) {
-  return h('div', { class: 'painel' }, h('h2', {}, 'Suas contas do mês'), h('p', { class: 'sub' }, 'Suas faturas que vencem e seus gastos fixos de pix/débito.'),
+  return h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Suas contas do mês'), h('p', { class: 'sub' }, 'Suas faturas que vencem e seus gastos fixos de pix/débito.')),
+      h('a', { class: 'btn sec mini', href: '#/vencimentos?mes=' + pn.mes }, ico('calendario'), 'Vencimentos')),
     pn.contas.length ? h('div', { class: 'linhas' }, pn.contas.map(x => [h('span', {}, fmtData(x.data).slice(0, 5), ' · ', x.descricao, h('span', { class: 'dica' }, ' · ' + (x.dono === perfil.email ? 'você' : primeiroNome(x.dono_nome))), ' ',
-      h('span', { class: 'chip ' + (x.paga ? 'paga' : 'aberta') }, x.tipo === 'FATURA' ? (x.paga ? 'paga' : 'em aberto') : (x.paga ? 'já passou' : 'a vencer'))), h('span', {}, brl(x.valor))])) : h('div', { class: 'vazio' }, 'Nenhuma conta neste mês.'));
+      h('span', { class: 'chip ' + (x.paga ? 'paga' : 'aberta') }, x.tipo === 'FATURA' ? (x.paga ? 'paga' : 'em aberto') : (x.paga ? 'pago' : 'a pagar'))), h('span', {}, brl(x.valor))])) : h('div', { class: 'vazio' }, 'Nenhuma conta neste mês.'));
 }
 function proximoMes(pn, r) {
   const cmp = pn.comparacao, pr = pn.proximo;
@@ -1203,6 +1385,8 @@ async function render(alvo, { perfil, ir }) {
     const minhas = ((r.pessoas.find(p => p.email === perfil.email) || {}).faturas || []).filter(f => f.total > 0 || f.paga);
     limpar(corpo).append(...[
       orcamento(pn, ir),
+      previsaoETeto(pn, () => carregar(sel.valor())),
+      avisoAssinaturas(pn, ir),
       blocoAcerto(r, perfil, ir),
       r.aberto && (r.aberto.valor !== r.acerto.restante_abs || !r.acerto.pendente || r.aberto.devedor.email !== r.acerto.pendente.devedor.email) ? h('div', { class: 'aviso atencao' }, ico('alerta'), ` Somando todos os meses, ${primeiroNome(r.aberto.devedor.nome)} ainda deve ${brl(r.aberto.valor)} a ${primeiroNome(r.aberto.credor.nome)}. `, h('a', { href: '#/acerto' }, 'Ver histórico')) : null,
       pn.tem_rendas ? h('div', { class: 'pessoas' }, cartaoVoce(pn, perfil, minhas, ir), cartaoCasal(pn, ir)) : null,
@@ -1221,7 +1405,7 @@ return { render, fraseAcerto, gerenciarLimites };
 const __m_pages_faturas = (() => {
 const { h, limpar, brl, fmtData, fmtDataCurta, rotuloMes, rotuloMesCurto, somarMeses, hoje, lerValor, valorEdicao, primeiroNome, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado, carregarDominios, lerArquivoBase64 } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria, aposExcluir, ligarSugestao, barraFiltro } = __m_ui;
 
 /** Mesma regra do servidor (03_Regras.js): fatura = mês de vencimento; compra no dia do fechamento ou depois vai para a fatura seguinte. */
 function faturaSugerida(cartao, data) {
@@ -1265,13 +1449,14 @@ async function formCompra(perfil, compra, aoSalvar, cartaoInicial) {
   const dom = await carregarDominios();
   const meus = dom.cartoes.filter(c => c.titular === perfil.email && (c.ativo === 1 || (compra && c.id === compra.cartao_id)));
   if (!meus.length) { toast('Cadastre primeiro um cartão seu (Cartões e faturas → Meus cartões).', true); return gerenciarCartoes(perfil, dom, aoSalvar); }
-  const novo = !compra; compra = compra || { data_compra: hoje(), parcelas: 1, divisao: 'DIVIDIDO', cartao_id: (meus.find(c => c.id === cartaoInicial) || meus[0]).id };
+  const modelo = !!(compra && compra._modelo), novo = !compra || modelo; compra = compra || { data_compra: hoje(), parcelas: 1, divisao: 'DIVIDIDO', cartao_id: (meus.find(c => c.id === cartaoInicial) || meus[0]).id };   // V1.5: _modelo = "lançar de novo"
+  if (modelo && !meus.some(c => c.id === compra.cartao_id)) compra.cartao_id = meus[0].id;
   const cartao = select(meus.map(c => ({ value: c.id, label: c.rotulo })), compra.cartao_id, {}, null);
   const desc = h('input', { type: 'text', value: compra.descricao || '', maxlength: 120, placeholder: 'ex.: Supermercado, Geladeira…' });
   const data = h('input', { type: 'date', value: compra.data_compra || hoje() });
-  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(compra.valor_total), placeholder: '0,00' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: compra.valor_total != null && compra.valor_total !== '' ? valorEdicao(compra.valor_total) : '', placeholder: '0,00' });
   const nParc = select(OPC_PARCELAS, compra.parcelas || 1, {}, null);
-  const vParc = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(Math.round(compra.valor_total * 100 / (compra.parcelas || 1)) / 100), placeholder: '0,00' });
+  const vParc = h('input', { type: 'text', inputmode: 'decimal', value: compra.valor_total != null && compra.valor_total !== '' ? valorEdicao(Math.round(compra.valor_total * 100 / (compra.parcelas || 1)) / 100) : '', placeholder: '0,00' });
   let fonte = 'parcela'; // o último campo digitado (parcela ou total) manda no cálculo do outro
   const calcular = () => {
     const n = Number(nParc.value) || 1;
@@ -1285,6 +1470,7 @@ async function formCompra(perfil, compra, aoSalvar, cartaoInicial) {
   const infoParc = h('div', { class: 'dica' }), divisao = segmentos(opcoesDivisao(perfil), compra.divisao || 'DIVIDIDO', () => atualizar());
   const cat = campoCategoria(dom, compra.categoria), obs = h('input', { type: 'text', value: compra.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
   // terceiro: alguém de fora do casal que paga parte da compra
+  ligarSugestao(desc, cat, dom);
   const tNome = h('input', { type: 'text', maxlength: 60, value: compra.terceiro || '', placeholder: 'ex.: Mãe, João' });
   const tValor = h('input', { type: 'text', inputmode: 'decimal', value: compra.terceiro ? valorEdicao(compra.terceiro_valor) : '', placeholder: '0,00' });
   const tInfo = h('div', { class: 'dica' }), tCaixa = h('div', { class: 'form-grade', style: { display: compra.terceiro ? '' : 'none' } }, campo('Quem paga', tNome), campo('Quanto paga no total (R$)', tValor), h('div', { class: 'cheia' }, tInfo));
@@ -1305,7 +1491,7 @@ async function formCompra(perfil, compra, aoSalvar, cartaoInicial) {
   fatura.addEventListener('change', () => { faturaManual = true; atualizar(); });
   const restaurar = h('button', { type: 'button', class: 'btn sec mini', style: { marginTop: '6px' }, onclick: () => { faturaManual = false; atualizar(); } }, 'Usar a sugerida');
   atualizar();
-  modal({ titulo: novo ? 'Nova compra no cartão' : 'Editar compra', corpo: h('div', {},
+  modal({ titulo: modelo ? 'Lançar de novo' : novo ? 'Nova compra no cartão' : 'Editar compra', corpo: h('div', {},
     h('div', { class: 'form-grade' }, campo('Cartão', cartao, { obrig: true }), campo('Data da compra', data, { obrig: true }),
       campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Parcelas', nParc, { obrig: true }), campo('Valor da parcela (R$)', vParc, { dica: 'Digite a parcela e o total é calculado (parcela × nº de parcelas).' }),
       campo('Valor total (R$)', valor, { obrig: true, dica: 'Ou digite o total e a parcela é calculada. Estorno: valor negativo.' }),
@@ -1510,7 +1696,8 @@ async function verCompra(id, perfil, aoMudar) {
     cp.categoria ? [h('span', {}, 'Categoria'), h('span', {}, cp.categoria)] : null, cp.obs ? [h('span', {}, 'Observação'), h('span', {}, cp.obs)] : null),
     tabela([{ titulo: 'Parcela', f: p => p.n + '/' + cp.parcelas }, { titulo: 'Fatura', f: p => h('span', { style: { fontWeight: p.mes === (estado.mes || '') ? 700 : 400 } }, p.rotulo) }, { titulo: 'Valor', num: true, f: p => brl(p.valor) }], cp.parcelas_lista));
   const botoes = [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }];
-  if (meu) botoes.unshift({ texto: 'Excluir', classe: 'perigo', onclick: async c => { if (!(await confirmar('Excluir compra?', `Excluir "${cp.descricao}" e todas as ${cp.parcelas} parcela(s)?`, 'Excluir', true))) return; try { await DEL('/api/compras/' + cp.id); c(); toast('Compra excluída.'); aoMudar && aoMudar(); } catch (e) { toast(e.message, true); } } },
+  if (meu) botoes.unshift({ texto: 'Excluir', classe: 'perigo', onclick: async c => { if (!(await confirmar('Excluir compra?', `Excluir "${cp.descricao}" e todas as ${cp.parcelas} parcela(s)?`, 'Excluir', true))) return; try { const rx = await DEL('/api/compras/' + cp.id); c(); aposExcluir(rx, 'Compra excluída.', aoMudar); aoMudar && aoMudar(); } catch (e) { toast(e.message, true); } } },
+    { texto: 'Lançar de novo', classe: 'sec', onclick: c => { c(); formCompra(perfil, { _modelo: true, cartao_id: cp.cartao_id, descricao: cp.descricao, valor_total: cp.valor_total, parcelas: cp.parcelas, divisao: cp.divisao, categoria: cp.categoria, obs: cp.obs, data_compra: hoje() }, aoMudar); } },
     { texto: 'Editar', onclick: c => { c(); formCompra(perfil, cp, aoMudar); } });
   modal({ titulo: cp.descricao, corpo, botoes });
 }
@@ -1568,10 +1755,16 @@ async function render(alvo, { perfil, dom, query }) {
         h('div', { class: 'val' }, brl(c.total)), h('div', { class: 'tit' }, c.restrito ? c.lancamentos + ' dividida(s) com você' : c.lancamentos + ' lançamento(s)')))));
       await desenharFatura(cartaoSel, mes);
     }
+    // V1.5: quanto da sua parte "libera" a cada mês, quando os parcelamentos terminam
+    const libera = {}; pc.forEach(p => { const m = somarMeses(p.ultima_fatura, 1); libera[m] = (libera[m] || 0) + Number(p.minha_parte_parcela || 0); });
+    const libs = Object.keys(libera).filter(m => libera[m] > 0).sort().slice(0, 8);
+    const blocoLib = libs.length ? h('div', { class: 'liberacoes' }, h('div', { class: 'dica' }, 'Quando os parcelamentos terminam, a sua parte por mês diminui:'),
+      h('div', { class: 'acoes-linha' }, libs.map(m => h('span', { class: 'chip libera', title: 'A partir de ' + rotuloMes(m) }, ico('calendario'), ' ' + rotuloMesCurto(m) + ': −' + brl(libera[m]) + '/mês')))) : null;
     parcs.append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Parcelamentos em andamento'), h('p', { class: 'sub' }, 'Compras parceladas com parcelas a partir de ' + rotuloMes(mes) + ' — dos seus cartões e as divididas com você.'))),
+      blocoLib,
       tabela([{ titulo: 'Compra', f: p => h('div', {}, p.descricao, h('div', { class: 'sec-txt' }, p.cartao + ' · ' + primeiroNome(p.titular_nome) + ' · comprado em ' + fmtData(p.data_compra))) },
         { titulo: 'Parcela no mês', f: p => p.parcela_atual ? p.parcela_atual + '/' + p.parcelas : '—' }, { titulo: 'Divisão', f: p => chipDivisao(p.divisao, p.divisao_rotulo) },
-        { titulo: 'Valor da parcela', num: true, f: p => brl(p.valor_parcela) }, { titulo: 'Restam', num: true, f: p => p.restantes + 'x · ' + brl(p.valor_restante) }, { titulo: 'Última fatura', f: p => rotuloMesCurto(p.ultima_fatura) }],
+        { titulo: 'Valor da parcela', num: true, f: p => brl(p.valor_parcela) }, { titulo: 'Restam', num: true, f: p => p.restantes + 'x · ' + brl(p.valor_restante) }, { titulo: 'Termina em', f: p => h('span', { title: 'Última parcela na fatura de ' + rotuloMes(p.ultima_fatura) }, rotuloMesCurto(p.ultima_fatura), p.restantes <= 1 ? h('span', { class: 'chip paga', style: { marginLeft: '6px' } }, 'última') : null) }],
         pc, { vazio: 'Nenhuma compra parcelada em andamento.', aoClicar: p => verCompra(p.id, perfil, recarregar) })));
   }
   async function desenharFatura(id, mes) {
@@ -1579,18 +1772,10 @@ async function render(alvo, { perfil, dom, query }) {
     const f = await GET(`/api/faturas/${id}?mes=${mes}`); if (mesAtual !== mes || cartaoSel !== id) return;
     const meu = f.cartao.titular === perfil.email, outro = meu ? (perfil.parceiro ? perfil.parceiro.apelido : 'parceiro(a)') : 'você', restrito = !!f.restrito;
     const pagar = meu ? h('button', { class: 'btn ' + (f.paga ? 'sec' : ''), type: 'button', onclick: async () => { try { await PUT(`/api/faturas/${id}/${mes}`, { paga: !f.paga }); toast(f.paga ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico(f.paga ? 'x' : 'ok'), f.paga ? 'Desmarcar pagamento' : 'Marcar fatura como paga') : null;
-    limpar(detalhe).append(h('div', { class: 'painel' },
-      h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, restrito ? `Divididas no cartão de ${primeiroNome(f.titular_nome)} — ${f.rotulo}` : `Fatura ${f.cartao_nome} — ${f.rotulo}`),
-        h('p', { class: 'sub' }, restrito ? `${f.cartao_nome} · vence em ${fmtData(f.vencimento)} · você vê só as compras divididas com você (o resto da fatura é privado)` : `${f.titular_nome} · vence em ${fmtData(f.vencimento)}` + (f.paga ? ` · paga em ${fmtData(f.paga_em)}` : ''))),
-        h('div', { class: 'acoes-linha' }, meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formCompra(perfil, null, recarregar, id) }, ico('mais'), 'Lançar neste cartão') : null,
-          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formLote(perfil, recarregar, id, mes) }, ico('camadas'), 'Lançar vários nesta fatura') : null,
-          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_fixos.formRecorrente(perfil, { tipo: 'CARTAO', cartao_id: id, divisao: 'DIVIDIDO', dia: 1, inicio: mes }, recarregar, { mes, novo: true }) }, ico('repetir'), 'Gasto fixo') : null, pagar)),
-      h('div', { class: 'kpis' },
-        restrito ? null : h('div', { class: 'kpi' }, h('div', { class: 'r' }, 'Total da fatura'), h('div', { class: 'v' }, brl(f.total)), h('div', { class: 'd' }, f.itens.length + ' lançamento(s)')),
-        h('div', { class: 'kpi neutro' }, h('div', { class: 'r' }, restrito ? 'Divididas com você' : 'Gastos divididos'), h('div', { class: 'v' }, brl(f.compartilhado)), h('div', { class: 'd' }, restrito ? f.itens.length + ' lançamento(s)' : 'dividido ou todo do outro')),
-        h('div', { class: 'kpi ambar' }, h('div', { class: 'r' }, meu ? `${outro} deve a você` : `Você deve a ${primeiroNome(f.titular_nome)}`), h('div', { class: 'v' }, brl(f.receber)), h('div', { class: 'd' }, 'entra no acerto de ' + f.rotulo.split(' de ')[0])),
-        f.terceiros > 0 ? h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Terceiros pagam'), h('div', { class: 'v' }, brl(f.terceiros)), h('div', { class: 'd' }, 'parte de pessoas de fora do casal neste mês')) : null),
-      tabela([{ titulo: 'Data', f: i => fmtDataCurta(i.data_compra) }, { titulo: 'Descrição', f: i => h('div', {}, i.descricao, i.categoria ? h('div', { class: 'sec-txt' }, i.categoria) : null,
+    // V1.5: filtros (texto, categoria, divisão) com o total do que está filtrado
+    const caixaF = h('div', {}), fbF = barraFiltro({ itens: f.itens, perfil, aoMudar: () => desenharF() });
+    const desenharF = () => { const its = fbF.aplicar(f.itens), filt = fbF.ativo(), tot = its.reduce((s2, i) => s2 + Number(i.valor), 0);
+      limpar(caixaF).append(tabela([{ titulo: 'Data', f: i => fmtDataCurta(i.data_compra) }, { titulo: 'Descrição', f: i => h('div', {}, i.descricao, i.categoria ? h('div', { class: 'sec-txt' }, i.categoria) : null,
           i.terceiro ? h('div', {}, h('span', { class: 'chip terceiro' + (i.terceiro_recebido ? ' ok' : ''), title: `${i.terceiro} paga ${brl(i.terceiro_valor)} no total` }, ico('usuario'), `${i.terceiro} paga ${brl(i.terceiro_parcela)}` + (i.terceiro_recebido ? ' ✓' : ''))) : null) },
         { titulo: 'Parcela', f: i => i.recorrente ? h('span', { class: 'chip fixo', title: 'Gasto fixo: entra todo mês' }, ico('repetir'), 'fixo') : i.parcelas > 1 ? i.parcela + '/' + i.parcelas : 'à vista' },
         { titulo: 'Dividir', f: i => meu ? h('label', { class: 'chk-dividir', title: i.recorrente ? 'Gasto fixo: muda a partir deste mês' : 'Marque para dividir meio a meio' }, h('input', { type: 'checkbox', checked: i.divisao === 'DIVIDIDO', onchange: async ev => {
@@ -1604,10 +1789,23 @@ async function render(alvo, { perfil, dom, query }) {
             h('button', { class: 'btn sec mini', type: 'button', title: 'Encerrar gasto fixo', onclick: async () => __m_pages_fixos.encerrar(await GET('/api/recorrentes/' + i.id), recarregar) }, 'Encerrar'))
           : meu ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Terceiro paga parte', 'aria-label': 'Terceiro paga parte', onclick: () => formTerceiro(i, recarregar) }, ico('usuario'), 'Terceiro'),
           h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: async () => formCompra(perfil, await GET('/api/compras/' + i.id), recarregar) }, ico('editar')),
-          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir compra?', `Excluir "${i.descricao}"` + (i.parcelas > 1 ? ` e todas as ${i.parcelas} parcelas (inclusive dos outros meses)?` : '?'), 'Excluir', true))) return; try { await DEL('/api/compras/' + i.id); toast('Compra excluída.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
-        f.itens, { vazio: 'Nenhum lançamento nesta fatura.', rodape: ['', restrito ? 'Total dividido' : 'Total', '', '', '', brl(f.total), ''], aoClicar: i => i.recorrente ? (meu && __m_pages_fixos.abrirRecorrente(i.id, perfil, recarregar, mes)) : verCompra(i.id, perfil, recarregar) }),
+          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir compra?', `Excluir "${i.descricao}"` + (i.parcelas > 1 ? ` e todas as ${i.parcelas} parcelas (inclusive dos outros meses)?` : '?'), 'Excluir', true))) return; try { const rx = await DEL('/api/compras/' + i.id); aposExcluir(rx, 'Compra excluída.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
+        its, { vazio: filt ? 'Nenhum lançamento com esse filtro.' : 'Nenhum lançamento nesta fatura.', rodape: ['', filt ? 'Total filtrado (' + its.length + ')' : restrito ? 'Total dividido' : 'Total', '', '', '', brl(filt ? tot : f.total), ''], aoClicar: i => i.recorrente ? (meu && __m_pages_fixos.abrirRecorrente(i.id, perfil, recarregar, mes)) : verCompra(i.id, perfil, recarregar) })); };
+    limpar(detalhe).append(h('div', { class: 'painel' },
+      h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, restrito ? `Divididas no cartão de ${primeiroNome(f.titular_nome)} — ${f.rotulo}` : `Fatura ${f.cartao_nome} — ${f.rotulo}`),
+        h('p', { class: 'sub' }, restrito ? `${f.cartao_nome} · vence em ${fmtData(f.vencimento)} · você vê só as compras divididas com você (o resto da fatura é privado)` : `${f.titular_nome} · vence em ${fmtData(f.vencimento)}` + (f.paga ? ` · paga em ${fmtData(f.paga_em)}` : ''))),
+        h('div', { class: 'acoes-linha' }, meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formCompra(perfil, null, recarregar, id) }, ico('mais'), 'Lançar neste cartão') : null,
+          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => formLote(perfil, recarregar, id, mes) }, ico('camadas'), 'Lançar vários nesta fatura') : null,
+          meu ? h('button', { class: 'btn sec', type: 'button', onclick: () => __m_pages_fixos.formRecorrente(perfil, { tipo: 'CARTAO', cartao_id: id, divisao: 'DIVIDIDO', dia: 1, inicio: mes }, recarregar, { mes, novo: true }) }, ico('repetir'), 'Gasto fixo') : null, pagar)),
+      h('div', { class: 'kpis' },
+        restrito ? null : h('div', { class: 'kpi' }, h('div', { class: 'r' }, 'Total da fatura'), h('div', { class: 'v' }, brl(f.total)), h('div', { class: 'd' }, f.itens.length + ' lançamento(s)')),
+        h('div', { class: 'kpi neutro' }, h('div', { class: 'r' }, restrito ? 'Divididas com você' : 'Gastos divididos'), h('div', { class: 'v' }, brl(f.compartilhado)), h('div', { class: 'd' }, restrito ? f.itens.length + ' lançamento(s)' : 'dividido ou todo do outro')),
+        h('div', { class: 'kpi ambar' }, h('div', { class: 'r' }, meu ? `${outro} deve a você` : `Você deve a ${primeiroNome(f.titular_nome)}`), h('div', { class: 'v' }, brl(f.receber)), h('div', { class: 'd' }, 'entra no acerto de ' + f.rotulo.split(' de ')[0])),
+        f.terceiros > 0 ? h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Terceiros pagam'), h('div', { class: 'v' }, brl(f.terceiros)), h('div', { class: 'd' }, 'parte de pessoas de fora do casal neste mês')) : null),
+      h('div', {}, f.itens.length > 3 ? fbF.el : null, caixaF),
       h('div', { style: { marginTop: '14px' } }, h('div', { class: 'dica', style: { marginBottom: '6px' } }, restrito ? 'Próximos meses deste cartão (só o que é dividido com você):' : 'Próximas faturas deste cartão (parcelas e gastos fixos já lançados):'),
         h('div', { class: 'acoes-linha' }, f.proximas.map(p => h('button', { type: 'button', class: 'btn sec mini', onclick: () => { sel.el.querySelector('input[type=month]').value = p.mes; sel.el.querySelector('input[type=month]').dispatchEvent(new Event('change')); } }, rotuloMesCurto(p.mes) + ': ' + brl(p.total)))))));
+    desenharF();
   }
   await carregar(sel.valor());
 }
@@ -1619,22 +1817,23 @@ return { render, formCompra, formLote, formCartao, faturaSugerida };
 const __m_pages_gastos = (() => {
 const { h, limpar, brl, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
 const { GET, POST, PUT, DEL, carregarDominios } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, chipForma, opcoesDivisao, campoCategoria } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, chipForma, opcoesDivisao, campoCategoria, aposExcluir, ligarSugestao, barraFiltro } = __m_ui;
 
 async function formGasto(perfil, gasto, aoSalvar) {
-  const dom = await carregarDominios(), novo = !gasto; gasto = gasto || { data: hoje(), forma: 'PIX', divisao: 'DIVIDIDO' };
+  const dom = await carregarDominios(), modelo = !!(gasto && gasto._modelo), novo = !gasto || modelo; gasto = gasto || { data: hoje(), forma: 'PIX', divisao: 'DIVIDIDO' };   // V1.5: _modelo = "lançar de novo" (novo gasto já preenchido)
   const data = h('input', { type: 'date', value: gasto.data }), desc = h('input', { type: 'text', value: gasto.descricao || '', maxlength: 120, placeholder: 'ex.: Feira, Farmácia, Conta de luz…' });
-  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(gasto.valor), placeholder: '0,00' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: gasto.valor != null && gasto.valor !== '' ? valorEdicao(gasto.valor) : '', placeholder: '0,00' });
   const forma = segmentos([{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }], gasto.forma);
   const info = h('div', { class: 'dica' }), divisao = segmentos(opcoesDivisao(perfil), gasto.divisao, () => atualizar());
   const cat = campoCategoria(dom, gasto.categoria), obs = h('input', { type: 'text', value: gasto.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
   const outro = perfil.parceiro ? perfil.parceiro.apelido : 'a outra pessoa';
+  ligarSugestao(desc, cat, dom);
   function atualizar() {
     const v = lerValor(valor.value), d = divisao.valor();
     info.textContent = isNaN(v) || !v ? '' : d === 'DIVIDIDO' ? `${outro} vai te dever ${brl(Math.round(v * 50) / 100)} (metade).` : d === 'OUTRO' ? `${outro} vai te dever ${brl(v)} (o valor inteiro).` : 'Não entra no acerto: é só seu.';
   }
   valor.addEventListener('input', atualizar); atualizar();
-  modal({ titulo: novo ? 'Novo gasto no pix / débito' : 'Editar gasto', corpo: h('div', {},
+  modal({ titulo: modelo ? 'Lançar de novo' : novo ? 'Novo gasto no pix / débito' : 'Editar gasto', corpo: h('div', {},
     h('div', { class: 'aviso info', style: { marginTop: '12px' } }, ico('usuario'), ' Pago por ', h('b', {}, novo ? 'você (' + perfil.nome + ')' : gasto.pago_por_nome), ' — quem lança é quem pagou.'),
     h('div', { class: 'form-grade' }, campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Valor (R$)', valor, { obrig: true }), campo('Data', data, { obrig: true }),
       campo('Forma de pagamento', forma.el, { obrig: true }), campo('Categoria', cat)),
@@ -1733,15 +1932,22 @@ async function render(alvo, { perfil, dom }) {
     limpar(resumo).append(h('div', { class: 'kpis' }, r.totais.slice().sort((a, b) => (b.email === perfil.email) - (a.email === perfil.email)).map((t, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') },
       h('div', { class: 'r' }, t.email === perfil.email ? 'Você pagou' : primeiroNome(t.nome) + ' pagou (dividido com você)'), h('div', { class: 'v' }, brl(t.total == null ? t.compartilhado : t.total)),
       h('div', { class: 'd' }, t.total == null ? `você deve ${brl(t.receber)} desses gastos` : `${brl(t.compartilhado)} dividido · a receber ${brl(t.receber)}`)))));
-    const total = r.itens.reduce((s, g) => s + Number(g.valor), 0);
-    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Lançamentos de ' + r.rotulo), h('p', { class: 'sub' }, r.itens.length + ' gasto(s)')), filtro.el),
-      tabela([{ titulo: 'Data', f: g => fmtDataCurta(g.data) }, { titulo: 'Descrição', f: g => h('div', {}, g.descricao, g.recorrente ? h('span', { class: 'chip fixo', style: { marginLeft: '6px' } }, ico('repetir'), 'fixo') : null, g.categoria || g.obs ? h('div', { class: 'sec-txt' }, [g.categoria, g.obs].filter(Boolean).join(' · ')) : null) },
+    // V1.5: filtros (texto, categoria, divisão) com o total do que está filtrado
+    const fb = barraFiltro({ itens: r.itens, perfil, aoMudar: () => desenhar() }), caixa = h('div', {}), subt = h('p', { class: 'sub' });
+    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Lançamentos de ' + r.rotulo), subt), filtro.el), r.itens.length > 3 ? fb.el : null, caixa));
+    function desenhar() {
+      const its = fb.aplicar(r.itens), total = its.reduce((s, g) => s + Number(g.valor), 0), filt = fb.ativo();
+      subt.textContent = filt ? `${its.length} de ${r.itens.length} gasto(s) · filtrado: ${brl(total)}` : r.itens.length + ' gasto(s)';
+      limpar(caixa).append(tabela([{ titulo: 'Data', f: g => fmtDataCurta(g.data) }, { titulo: 'Descrição', f: g => h('div', {}, g.descricao, g.recorrente ? h('span', { class: 'chip fixo', style: { marginLeft: '6px' } }, ico('repetir'), 'fixo') : null, g.categoria || g.obs ? h('div', { class: 'sec-txt' }, [g.categoria, g.obs].filter(Boolean).join(' · ')) : null) },
         { titulo: 'Forma', f: g => chipForma(g.forma) }, { titulo: 'Pago por', f: g => h('span', { title: g.pago_por_nome }, g.pago_por === perfil.email ? 'Você' : primeiroNome(g.pago_por_nome)) },
         { titulo: 'Divisão', f: g => chipDivisao(g.divisao, g.divisao_rotulo) }, { titulo: 'Valor', num: true, f: g => brl(g.valor) }, { titulo: 'Outro deve', num: true, f: g => g.parte_outro ? brl(g.parte_outro) : '—' },
         { titulo: '', f: g => g.recorrente ? (g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar gasto fixo', onclick: () => __m_pages_fixos.abrirRecorrente(g.id, perfil, recarregar, mesAtual) }, ico('editar'))) : '')
           : g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGasto(perfil, g, recarregar) }, ico('editar')),
-          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir gasto?', `Excluir "${g.descricao}" (${brl(g.valor)})?`, 'Excluir', true))) return; try { await DEL('/api/gastos/' + g.id); toast('Gasto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
-        r.itens, { vazio: 'Nenhum gasto em pix/débito neste mês.', rodape: ['', 'Total', '', '', '', brl(total), '', ''] })));
+          h('button', { class: 'btn sec mini', type: 'button', title: 'Lançar de novo (copia este gasto com a data de hoje)', 'aria-label': 'Lançar de novo', onclick: () => formGasto(perfil, { _modelo: true, data: hoje(), descricao: g.descricao, valor: g.valor, forma: g.forma, divisao: g.divisao, categoria: g.categoria, obs: g.obs }, recarregar) }, ico('copiar')),
+          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir gasto?', `Excluir "${g.descricao}" (${brl(g.valor)})?`, 'Excluir', true))) return; try { const rx = await DEL('/api/gastos/' + g.id); aposExcluir(rx, 'Gasto excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
+        its, { vazio: filt ? 'Nenhum gasto com esse filtro.' : 'Nenhum gasto em pix/débito neste mês.', rodape: ['', filt ? 'Total filtrado' : 'Total', '', '', '', brl(total), '', ''] }));
+    }
+    desenhar();
   }
   await carregar(sel.valor());
 }
@@ -1753,7 +1959,7 @@ return { render, formGasto, formExtrato };
 const __m_pages_fixos = (() => {
 const { h, limpar, brl, fmtData, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado, carregarDominios } = __m_api;
-const { cabPagina, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria } = __m_ui;
+const { cabPagina, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, opcoesDivisao, campoCategoria, aposExcluir, ligarSugestao } = __m_ui;
 
 /**
  * Cadastrar / alterar gasto fixo. Na alteração de um gasto que já tem meses passados, pergunta "a partir de qual mês"
@@ -1767,11 +1973,12 @@ async function formRecorrente(perfil, rc, aoSalvar, opcoes = {}) {
   const cartao = select(meusCartoes.map(c => ({ value: c.id, label: c.rotulo })), rc.cartao_id, {}, meusCartoes.length ? null : '— cadastre um cartão primeiro —');
   const forma = segmentos([{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }], rc.forma || 'PIX');
   const desc = h('input', { type: 'text', value: rc.descricao || '', maxlength: 120, placeholder: 'ex.: Netflix, Aluguel, Internet' });
-  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(rc.valor), placeholder: '0,00' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: rc.valor != null && rc.valor !== '' ? valorEdicao(rc.valor) : '', placeholder: '0,00' });
   const dia = select(Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: 'Dia ' + (i + 1) })), rc.dia, {}, null);
   const inicio = h('input', { type: 'month', value: rc.inicio || mesAtual }), fim = h('input', { type: 'month', value: rc.fim || '' });
   const divisao = segmentos(opcoesDivisao(perfil), rc.divisao || 'DIVIDIDO');
   const cat = campoCategoria(dom, rc.categoria), obs = h('input', { type: 'text', value: rc.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  ligarSugestao(desc, cat, dom);
   const rotInicio = h('span'), dicaInicio = h('div', { class: 'dica' });
   const boxCartao = campo('Cartão', cartao, { obrig: true }), boxForma = campo('Forma de pagamento', forma.el, { obrig: true });
   function trocarTipo() {
@@ -1810,12 +2017,28 @@ function encerrar(rc, aoSalvar) {
 
 async function render(alvo, { perfil }) {
   let verEncerrados = false;
-  const resumo = h('div', {}), lista = h('div', {}), recarregar = () => carregar();
+  const resumo = h('div', {}), lista = h('div', {}), assin = h('div', {}), recarregar = () => carregar();
   alvo.append(cabPagina('Gastos fixos', 'Assinaturas e contas que se repetem todo mês com o mesmo valor. Cadastre uma vez: elas entram sozinhas nas faturas, nos pix/débito e no acerto de cada mês.',
-    h('button', { class: 'btn', type: 'button', onclick: () => formRecorrente(perfil, null, recarregar) }, ico('mais'), 'Novo gasto fixo')), resumo, lista);
+    h('button', { class: 'btn', type: 'button', onclick: () => formRecorrente(perfil, null, recarregar) }, ico('mais'), 'Novo gasto fixo')), resumo, assin, lista);
+  /** V1.5: compras que se repetem todo mês (parecem assinatura) — virar gasto fixo ou ignorar. */
+  async function carregarAssinaturas() {
+    let r; try { r = await GET('/api/assinaturas'); } catch (_) { return; }
+    limpar(assin); if (!r.itens.length) return;
+    assin.append(h('div', { class: 'painel assinaturas' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Parece assinatura'),
+      h('p', { class: 'sub' }, 'Lançamentos seus que se repetem quase todo mês com valor parecido. Virando gasto fixo, entram sozinhos todo mês — e você não precisa mais lançar à mão.'))),
+      h('div', { class: 'cartoes-assin' }, r.itens.map(x => h('div', { class: 'assin' + (x.aumento ? ' subiu' : '') },
+        h('div', { class: 'assin-topo' }, h('b', {}, x.descricao), h('span', { class: 'valor' }, brl(x.valor) + '/mês')),
+        h('div', { class: 'sec-txt' }, x.onde + (x.categoria ? ' · ' + x.categoria : '') + ' · ' + x.meses.length + ' meses: ' + x.meses.map(rotuloMesCurto).join(', ')),
+        x.aumento ? h('div', { class: 'aviso atencao mini' }, ico('alerta'), ` Subiu de ${brl(x.aumento.de)} para ${brl(x.aumento.para)} (+${String(x.aumento.pct).replace('.', ',')}%) em ${rotuloMesCurto(x.aumento.mes)}.`) : null,
+        h('div', { class: 'sec-txt' }, '≈ ' + brl(x.por_ano) + ' por ano'),
+        h('div', { class: 'acoes-linha' },
+          h('button', { class: 'btn mini', type: 'button', onclick: () => formRecorrente(perfil, { tipo: x.origem === 'CARTAO' ? 'CARTAO' : 'PIX', cartao_id: x.cartao_id || undefined, forma: x.forma || 'PIX', descricao: x.descricao, categoria: x.categoria || 'Assinaturas', valor: x.valor, dia: x.dia, divisao: x.divisao, inicio: x.proximo_mes,
+            obs: 'Criado a partir dos lançamentos repetidos' }, () => { toast(`A partir de ${rotuloMes(x.proximo_mes)} entra sozinho — não lance mais à mão.`); recarregar(); }, { mes: x.proximo_mes, novo: true }) }, ico('repetir'), 'Virar gasto fixo'),
+          h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { try { await POST('/api/assinaturas/ignorar', { chave: x.chave }); toast('Certo, não vou mais sugerir este.'); carregarAssinaturas(); } catch (e) { toast(e.message, true); } } }, 'Não é assinatura')))))));
+  }
   async function carregar() {
     limpar(lista).append(h('p', { class: 'carregando' }, 'Carregando…'));
-    const r = await GET('/api/recorrentes?mes=' + hoje().slice(0, 7));
+    const r = await GET('/api/recorrentes?mes=' + hoje().slice(0, 7)); carregarAssinaturas();
     limpar(resumo).append(h('div', { class: 'kpis' }, r.totais.slice().sort((a, b) => (b.email === perfil.email) - (a.email === perfil.email)).map((t, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') },
       h('div', { class: 'r' }, t.email === perfil.email ? 'Seus gastos fixos por mês' : 'Fixos de ' + primeiroNome(t.nome) + ' divididos com você'), h('div', { class: 'v' }, brl(t.total == null ? t.compartilhado : t.total)),
       h('div', { class: 'd' }, t.total == null ? `você deve ${brl(t.receber)} por mês desses gastos` : `o outro deve ${brl(t.receber)} por mês desses gastos`)))));
@@ -1829,7 +2052,7 @@ async function render(alvo, { perfil }) {
       { titulo: '', f: x => x.dono === perfil.email ? h('div', { class: 'acoes-linha' },
         h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formRecorrente(perfil, x, recarregar) }, ico('editar')),
         x.situacao === 'ativo' || x.situacao === 'futuro' ? h('button', { class: 'btn sec mini', type: 'button', title: 'Encerrar', onclick: () => encerrar(x, recarregar) }, 'Encerrar') : null,
-        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir de todos os meses', onclick: async () => { if (!(await confirmar('Excluir gasto fixo?', `Excluir "${x.descricao}" de TODOS os meses, inclusive os passados? Para só parar de cobrar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { await DEL('/api/recorrentes/' + x.id); toast('Gasto fixo excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
+        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir de todos os meses', onclick: async () => { if (!(await confirmar('Excluir gasto fixo?', `Excluir "${x.descricao}" de TODOS os meses, inclusive os passados? Para só parar de cobrar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { const rx = await DEL('/api/recorrentes/' + x.id); aposExcluir(rx, 'Gasto fixo excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
     limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Gastos fixos'), h('p', { class: 'sub' }, `${ativos.length} gasto(s) fixo(s)` + (encerrados.length ? ` · ${encerrados.length} no histórico (encerrados ou valores anteriores)` : ''))),
         encerrados.length ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => { verEncerrados = !verEncerrados; carregar(); } }, verEncerrados ? 'Esconder histórico' : 'Mostrar histórico') : null),
       tabela(cols, mostrar, { vazio: 'Nenhum gasto fixo ainda. Cadastre assinaturas (Netflix, Spotify, academia) e contas fixas (aluguel, condomínio, internet).', aoClicar: x => x.dono === perfil.email && formRecorrente(perfil, x, recarregar) }),
@@ -1845,7 +2068,7 @@ return { render, formRecorrente, abrirRecorrente, mudarDivisao, encerrar };
 const __m_pages_metas = (() => {
 const { h, limpar, brl, fmtData, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, tabela, modal, confirmar, toast, campo, segmentos } = __m_ui;
+const { cabPagina, tabela, modal, confirmar, toast, campo, segmentos, aposExcluir } = __m_ui;
 
 const CATS = [{ value: 'VIAGEM', label: 'Viagem', icone: 'aviao' }, { value: 'CARRO', label: 'Carro', icone: 'carro' }, { value: 'CASA', label: 'Casa', icone: 'home' },
   { value: 'RESERVA', label: 'Reserva', icone: 'escudo' }, { value: 'ESTUDOS', label: 'Estudos', icone: 'livro' }, { value: 'OUTRO', label: 'Outro', icone: 'alvo' }];
@@ -1929,7 +2152,7 @@ async function verDepositos(perfil, meta, aoSalvar) {
       { titulo: 'Valor', num: true, f: a => h('span', { class: a.valor < 0 ? 'valor-neg' : '' }, brl(a.valor)) },
       { titulo: '', f: a => a.criado_por === perfil.email || a.quem === perfil.email ? h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => {
         if (!(await confirmar('Excluir depósito?', `Excluir ${brl(a.valor)} de ${fmtData(a.data)}?`, 'Excluir', true))) return;
-        try { await DEL('/api/aportes/' + a.id); toast('Depósito excluído.'); m.fechar(); aoSalvar && aoSalvar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) : '' }],
+        try { const rx = await DEL('/api/aportes/' + a.id); m.fechar(); aposExcluir(rx, 'Depósito excluído.', aoSalvar); aoSalvar && aoSalvar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) : '' }],
       det.aportes, { vazio: 'Nenhum depósito registrado ainda.' })),
     botoes: [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }] });
 }
@@ -2005,7 +2228,7 @@ return { render, formMeta };
 const __m_pages_ganhos = (() => {
 const { h, limpar, brl, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, aposExcluir } = __m_ui;
 
 function formGanho(perfil, g, aoSalvar, mesVisto) {
   const novo = !g || !g.id, mesAtual = hoje().slice(0, 7); g = g || { tipo: 'FIXA', dia: 5, inicio: mesVisto || mesAtual };
@@ -2057,7 +2280,7 @@ async function render(alvo, { perfil }) {
       { titulo: 'Neste mês', f: x => x.situacao === 'ativo' ? h('span', { class: 'chip paga' }, 'entra') : x.situacao === 'futuro' ? 'começa ' + rotuloMesCurto(x.inicio) : 'encerrado' },
       { titulo: '', f: x => x.pessoa === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGanho(perfil, x, recarregar, mes) }, ico('editar')),
         x.tipo === 'FIXA' && x.situacao !== 'encerrado' ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => encerrar(x, recarregar) }, 'Encerrar') : null,
-        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir ganho?', `Excluir "${x.descricao}" de todos os meses? Para parar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { await DEL('/api/rendas/' + x.id); toast('Ganho excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
+        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir ganho?', `Excluir "${x.descricao}" de todos os meses? Para parar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { const rx = await DEL('/api/rendas/' + x.id); aposExcluir(rx, 'Ganho excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
     limpar(lista).append(h('div', { class: 'painel' }, h('h2', {}, 'Ganhos cadastrados'), h('p', { class: 'sub' }, 'Salário e outros ganhos que se repetem: "Todo mês". Extras: "Só um mês".'),
       tabela(cols, ativos, { vazio: 'Nenhum ganho cadastrado. Comece pelo salário de cada um.' }),
       antigos.length ? h('details', { style: { marginTop: '12px' } }, h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, `Encerrados e valores anteriores (${antigos.length})`), h('div', { style: { marginTop: '8px' } }, tabela(cols, antigos))) : null));
@@ -2072,7 +2295,7 @@ return { render, formGanho };
 const __m_pages_acerto = (() => {
 const { h, limpar, brl, fmtData, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
 const { GET, POST, DEL, baixar } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, segmentos, chipDivisao } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, segmentos, chipDivisao, aposExcluir } = __m_ui;
 const { fraseAcerto } = __m_pages_resumo;
 
 function formAcerto(perfil, ac, aoSalvar) {
@@ -2108,7 +2331,13 @@ async function render(alvo, { perfil }) {
     else if (!ac.pendente) { frase = ['Contas acertadas ✓']; det = `Saldo do mês de ${brl(ac.devido)} já acertado.`; zerado = true; }
     else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); det = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : `${primeiroNome(a.nome)} tem a receber ${brl(a.receber)} e ${primeiroNome(b.nome)} tem a receber ${brl(b.receber)}: a diferença é ${brl(ac.devido)}.`; }
     corpo.append(h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Resultado de ' + ac.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, det)),
-      h('button', { class: 'btn', type: 'button', onclick: () => formAcerto(perfil, ac, recarregar) }, ico('troca'), 'Registrar acerto')));
+      ac.fechado ? null : h('button', { class: 'btn', type: 'button', onclick: () => formAcerto(perfil, ac, recarregar) }, ico('troca'), 'Registrar acerto')));
+    // V1.5: fechamento do mês — depois do acerto, trava o que muda os números do mês (reabrir fica registrado e avisa o outro)
+    const hojeMes = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 7);
+    if (ac.fechado) corpo.append(h('div', { class: 'aviso fechado' }, ico('cadeado'), h('span', {}, ` ${ac.rotulo} está fechado (por ${primeiroNome(ac.fechado.por_nome)} em ${fmtData(String(ac.fechado.em).slice(0, 10))}). Lançamentos que mudam os valores deste mês ficam travados; descrição e categoria ainda podem ser corrigidas. `),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { if (!(await confirmar('Reabrir ' + ac.rotulo + '?', 'Os lançamentos deste mês voltam a poder ser alterados. ' + (perfil.parceiro ? perfil.parceiro.apelido + ' será avisado(a).' : ''), 'Reabrir'))) return; try { await POST('/api/meses/' + mes + '/reabrir', {}); toast('Mês reaberto.'); recarregar(); } catch (e) { toast(e.message, true); } } }, 'Reabrir o mês')));
+    else if (mes <= hojeMes) corpo.append(h('div', { class: 'aviso info fechar-mes' }, ico('cadeado'), h('span', {}, ac.pendente ? ' Quando o acerto estiver feito, feche o mês: os números dele não mudam mais sem querer. ' : ' Tudo acertado? Feche o mês para os números dele não mudarem sem querer. '),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { if (!(await confirmar('Fechar ' + ac.rotulo + '?', (ac.pendente ? `Ainda falta acertar ${brl(ac.pendente.valor)}. ` : '') + 'Compras, pix e gastos fixos que mudam os valores deste mês ficam travados até alguém reabrir. Marcar fatura ou conta como paga continua liberado.', 'Fechar o mês'))) return; try { await POST('/api/meses/' + mes + '/fechar', {}); toast(ac.rotulo + ' fechado.'); recarregar(); } catch (e) { toast(e.message, true); } } }, 'Fechar o mês')));
     // comparação
     const tot = v => v == null ? h('span', { title: 'Privado: você vê só o que é dividido' }, '—') : brl(v);
     const linha = (rot, fa, fb, cls) => [h('td', { class: cls || '' }, rot), h('td', { class: 'num ' + (cls || '') }, fa), h('td', { class: 'num ' + (cls || '') }, fb)];
@@ -2123,7 +2352,7 @@ async function render(alvo, { perfil }) {
           h('tfoot', {}, h('tr', {}, linha('Total a receber do outro', brl(a.receber), brl(b.receber))))))),
       h('div', { class: 'painel' }, h('h2', {}, 'Acertos registrados'), h('p', { class: 'sub' }, 'Pagamentos feitos entre vocês referentes a ' + ac.rotulo + '.'),
         tabela([{ titulo: 'Data', f: x => fmtData(x.data) }, { titulo: 'Quem pagou', f: x => primeiroNome(x.de_nome) + ' → ' + primeiroNome(x.para_nome) }, { titulo: 'Valor', num: true, f: x => brl(x.valor) },
-          { titulo: '', f: x => h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir acerto?', `Excluir o acerto de ${brl(x.valor)} (${fmtData(x.data)})?`, 'Excluir', true))) return; try { await DEL('/api/acertos/' + x.id); toast('Acerto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) }],
+          { titulo: '', f: x => h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir acerto?', `Excluir o acerto de ${brl(x.valor)} (${fmtData(x.data)})?`, 'Excluir', true))) return; try { const rx = await DEL('/api/acertos/' + x.id); aposExcluir(rx, 'Acerto excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) }],
           ac.acertos, { vazio: 'Nenhum acerto registrado neste mês.' }),
         ac.pendente ? h('div', { class: 'aviso atencao' }, 'Falta acertar ', h('b', {}, brl(ac.pendente.valor)), ` (${primeiroNome(ac.pendente.devedor.nome)} → ${primeiroNome(ac.pendente.credor.nome)}).`) : null)));
     // itens
@@ -2320,19 +2549,150 @@ return { render };
 })();
 </script>
 
+<script>/* V1.5 — pages/busca, pages/vencimentos, pages/categorias */
+const __m_pages_busca = (() => {
+const { h, limpar, brl, fmtData, rotuloMes, rotuloMesCurto, primeiroNome, ico, somarMeses, hoje } = __m_util;
+const { GET } = __m_api;
+const { cabPagina, tabela, chipDivisao, toast } = __m_ui;
+const TIPOS = [{ value: '', label: 'Tudo' }, { value: 'CARTAO', label: 'Cartão' }, { value: 'PIX', label: 'Pix/débito' }, { value: 'FIXO', label: 'Gastos fixos' }];
+async function render(alvo, { perfil, dom, query, ir }) {
+  const q = h('input', { type: 'search', class: 'busca-grande', placeholder: 'O que você procura? Ex.: Netflix, farmácia, 45,90', value: query.q || '', 'aria-label': 'Buscar', autofocus: true });
+  const cat = h('select', { 'aria-label': 'Categoria' }, h('option', { value: '' }, 'Todas as categorias'), dom.categorias.map(c => h('option', { value: c, selected: c === query.categoria }, c)));
+  const tipo = h('select', { 'aria-label': 'Tipo' }, TIPOS.map(t => h('option', { value: t.value, selected: t.value === (query.tipo || '') }, t.label)));
+  const ma = hoje().slice(0, 7), PERIODOS = [{ v: '', l: 'Desde o início' }, { v: '12', l: 'Últimos 12 meses' }, { v: 'ano', l: 'Este ano' }, { v: '3', l: 'Últimos 3 meses' }];
+  const per = h('select', { 'aria-label': 'Período' }, PERIODOS.map(p => h('option', { value: p.v, selected: p.v === (query.per || '') }, p.l)));
+  const res = h('div', {});
+  const form = h('form', { class: 'busca-form', onsubmit: e => { e.preventDefault(); buscar(); } }, h('div', { class: 'busca-linha' }, ico('lupa'), q, h('button', { class: 'btn', type: 'submit' }, 'Buscar')), h('div', { class: 'acoes-linha' }, tipo, cat, per));
+  [cat, tipo, per].forEach(el => el.addEventListener('change', () => { if (q.value.trim() || cat.value) buscar(); }));
+  alvo.append(cabPagina('Buscar', 'Encontre lançamentos em todos os meses e veja quanto foi no total — seus e os divididos com você.'), h('div', { class: 'painel' }, form), res);
+  let seq = 0;
+  async function buscar() {
+    const termo = q.value.trim(); if (!termo && !cat.value) { limpar(res); q.focus(); return; }
+    let de = '', ate = ''; if (per.value === 'ano') de = ma.slice(0, 4) + '-01'; else if (per.value) de = somarMeses(ma, -(Number(per.value) - 1));
+    const n = ++seq; limpar(res).append(h('p', { class: 'carregando' }, 'Buscando…'));
+    try { history.replaceState(null, '', '#/busca?' + new URLSearchParams(Object.entries({ q: termo, categoria: cat.value, tipo: tipo.value, per: per.value }).filter(([, v]) => v))); } catch (_) {}
+    let r; try { r = await GET('/api/busca?' + new URLSearchParams(Object.entries({ q: termo, categoria: cat.value, tipo: tipo.value, de, ate }).filter(([, v]) => v))); } catch (e) { if (n === seq) limpar(res).append(h('div', { class: 'aviso erro' }, e.message)); return; }
+    if (n !== seq) return;
+    limpar(res).append(h('div', { class: 'kpis' },
+      h('div', { class: 'kpi' }, h('div', { class: 'r' }, 'Encontrados'), h('div', { class: 'v' }, String(r.n)), h('div', { class: 'd' }, r.cortado ? 'mostrando os 400 mais recentes' : 'lançamento(s)')),
+      h('div', { class: 'kpi neutro' }, h('div', { class: 'r' }, 'Valor total'), h('div', { class: 'v' }, brl(r.total)), h('div', { class: 'd' }, 'soma dos lançamentos')),
+      h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Sua parte'), h('div', { class: 'v' }, brl(r.minha_parte)), h('div', { class: 'd' }, r.por_ano.length ? r.por_ano.slice(0, 3).map(a => a.ano + ': ' + brl(a.minha_parte)).join(' · ') : 'o que pesou para você'))),
+      h('div', { class: 'painel' }, tabela([{ titulo: 'Data', f: x => x.tipo === 'FIXO' ? 'desde ' + rotuloMesCurto(x.mes) : fmtData(x.data) },
+        { titulo: 'Descrição', f: x => h('div', {}, x.descricao, h('div', { class: 'sec-txt' }, [x.categoria, x.onde, x.detalhe].filter(Boolean).join(' · '))) },
+        { titulo: 'Tipo', f: x => h('span', { class: 'chip ' + (x.tipo === 'FIXO' ? 'fixo' : x.tipo === 'PIX' ? 'PIX' : '') }, x.tipo === 'CARTAO' ? 'Cartão' : x.tipo === 'PIX' ? 'Pix/débito' : 'Fixo') },
+        { titulo: 'Quem pagou', f: x => x.pagador === perfil.email ? 'Você' : primeiroNome((dom.usuarios.find(u => u.email === x.pagador) || {}).nome || '') },
+        { titulo: 'Divisão', f: x => chipDivisao(x.divisao, x.divisao === 'DIVIDIDO' ? 'Dividido' : x.divisao === 'OUTRO' ? 'Todo do outro' : 'Individual') },
+        { titulo: 'Valor', num: true, f: x => brl(x.valor) }, { titulo: 'Sua parte', num: true, f: x => brl(x.minha_parte) }],
+        r.itens, { vazio: 'Nada encontrado. Tente outra palavra ou um período maior.', rodape: ['', 'Total', '', '', '', brl(r.total), brl(r.minha_parte)],
+          aoClicar: x => x.tipo === 'CARTAO' ? ir('faturas', { mes: x.mes }) : x.tipo === 'PIX' ? ir('gastos') : ir('fixos') })));
+  }
+  if (q.value || cat.value) await buscar();
+}
+return { render };
+})();
+
+const __m_pages_vencimentos = (() => {
+const { h, limpar, brl, fmtData, rotuloMes, primeiroNome, ico } = __m_util;
+const { GET, PUT } = __m_api;
+const { cabPagina, seletorMes, toast, tabela } = __m_ui;
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const ROT = { pago: 'pago', atrasado: 'atrasado', hoje: 'vence hoje', a_vencer: 'a vencer', recebido: 'recebido', a_receber: 'a receber' };
+async function render(alvo, { perfil, query, ir }) {
+  const corpo = h('div', {}), sel = seletorMes(m => carregar(m), query.mes);
+  alvo.append(cabPagina('Vencimentos', 'Tudo o que vence no mês, dia a dia: suas faturas, seus gastos fixos de pix/débito e o acerto. Marque o que já pagou.', sel.el), corpo);
+  async function marcar(x, recarregar) {
+    try {
+      if (x.tipo === 'FATURA') await PUT(`/api/faturas/${x.id}/${sel.valor()}`, { paga: !x.pago });
+      else if (x.tipo === 'FIXO') await PUT(`/api/fixos/${x.id}/${sel.valor()}/pago`, { pago: !x.pago });
+      toast(x.pago ? 'Marcado como não pago.' : 'Marcado como pago.'); recarregar();
+    } catch (e) { toast(e.message, true); }
+  }
+  async function carregar(mes) {
+    limpar(corpo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/vencimentos?mes=' + mes); if (sel.valor() !== mes) return;
+    const recarregar = () => carregar(mes), saidas = r.itens.filter(x => !x.entrada || x.tipo === 'ACERTO');
+    const botao = x => (x.tipo === 'FATURA' || x.tipo === 'FIXO') ? h('button', { class: 'btn mini ' + (x.pago ? 'sec' : ''), type: 'button', onclick: ev => { ev.stopPropagation(); marcar(x, recarregar); } }, ico(x.pago ? 'x' : 'ok'), x.pago ? 'Desmarcar' : 'Paguei')
+      : x.tipo === 'ACERTO' ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => ir('acerto', { mes }) }, 'Ver acerto') : null;
+    // calendário (no computador); no celular fica só a lista
+    const [a, m] = mes.split('-').map(Number), primeiro = new Date(Date.UTC(a, m - 1, 1)).getUTCDay(), dias = new Date(Date.UTC(a, m, 0)).getUTCDate(), porDia = {};
+    r.itens.forEach(x => { const d = Number(x.data.slice(8, 10)); (porDia[d] = porDia[d] || []).push(x); });
+    const celulas = []; for (let i = 0; i < primeiro; i++) celulas.push(h('div', { class: 'cal-dia vazio' }));
+    for (let d = 1; d <= dias; d++) {
+      const its = porDia[d] || [], iso = mes + '-' + String(d).padStart(2, '0');
+      celulas.push(h('div', { class: 'cal-dia' + (iso === r.hoje ? ' hoje' : '') + (its.some(x => x.situacao === 'atrasado') ? ' atraso' : '') }, h('div', { class: 'cal-n' }, d),
+        its.slice(0, 3).map(x => h('div', { class: 'cal-item ' + (x.entrada ? 'entrada' : x.pago ? 'pago' : x.situacao), title: x.descricao + ' · ' + brl(x.valor) + ' · ' + ROT[x.situacao] }, (x.entrada ? '+' : '') + brl(x.valor).replace('R$ ', ''), h('span', {}, ' ' + x.descricao.replace(/^Fatura /, '')))),
+        its.length > 3 ? h('div', { class: 'cal-mais' }, '+' + (its.length - 3)) : null));
+    }
+    limpar(corpo).append(...[   // (filter: o append nativo escreveria "null")
+      r.fechado ? h('div', { class: 'aviso info' }, ico('cadeado'), ` ${rotuloMes(mes)} foi fechado por ${primeiroNome(r.fechado.por_nome)}. Marcar como pago continua liberado.`) : null,
+      h('div', { class: 'kpis' },
+        h('div', { class: 'kpi ' + (r.totais.atrasado > 0 ? 'vermelho' : '') }, h('div', { class: 'r' }, 'A pagar'), h('div', { class: 'v' }, brl(r.totais.a_pagar)), h('div', { class: 'd' }, r.totais.n_atrasados ? r.totais.n_atrasados + ' atrasado(s): ' + brl(r.totais.atrasado) : 'nada atrasado')),
+        h('div', { class: 'kpi verde' }, h('div', { class: 'r' }, 'Já pago'), h('div', { class: 'v' }, brl(r.totais.pago)), h('div', { class: 'd' }, 'marcado como pago')),
+        h('div', { class: 'kpi neutro' }, h('div', { class: 'r' }, 'Entradas previstas'), h('div', { class: 'v' }, brl(r.totais.entradas)), h('div', { class: 'd' }, 'seus ganhos no mês'))),
+      h('div', { class: 'painel calendario' }, h('div', { class: 'cal-grade' }, SEMANA.map(s => h('div', { class: 'cal-sem' }, s)), celulas),
+        h('div', { class: 'legenda' }, h('span', {}, h('i', { style: { background: 'var(--vermelho)' } }), 'atrasado'), h('span', {}, h('i', { style: { background: 'var(--tangerina)' } }), 'a vencer'), h('span', {}, h('i', { style: { background: 'var(--verde)' } }), 'pago / entrada'))),
+      h('div', { class: 'painel' }, h('h2', {}, 'Dia a dia — ' + r.rotulo),
+        tabela([{ titulo: 'Dia', f: x => fmtData(x.data).slice(0, 5) }, { titulo: 'Descrição', f: x => h('div', {}, x.descricao, h('div', { class: 'sec-txt' }, x.tipo === 'FATURA' ? 'fatura do cartão' : x.tipo === 'FIXO' ? 'gasto fixo · ' + ({ PIX: 'pix', DEBITO: 'débito', DINHEIRO: 'dinheiro' }[x.forma] || '') : x.tipo === 'ACERTO' ? 'entre vocês dois' : 'ganho')) },
+          { titulo: 'Situação', f: x => h('span', { class: 'chip venc ' + x.situacao }, ROT[x.situacao] + (x.pago && x.pago_em && x.tipo !== 'GANHO' ? ' em ' + fmtData(x.pago_em).slice(0, 5) : '')) },
+          { titulo: 'Valor', num: true, f: x => h('span', { class: x.entrada ? 'valor-pos' : '' }, (x.entrada ? '+ ' : '') + brl(x.valor)) }, { titulo: '', f: botao }],
+          r.itens, { vazio: 'Nada vence neste mês.', aoClicar: x => ir(x.rota, x.query) })),
+      h('p', { class: 'dica' }, 'Os gastos fixos marcados como pagos deixam de aparecer nos lembretes. Faturas: o mesmo botão "Marcar fatura como paga" da tela de cartões.')].filter(Boolean));
+  }
+  await carregar(sel.valor());
+}
+return { render };
+})();
+
+const __m_pages_categorias = (() => {
+const { h, limpar, ico } = __m_util;
+const { GET, POST, carregarDominios } = __m_api;
+const { cabPagina, tabela, modal, toast, campo, confirmar } = __m_ui;
+async function render(alvo) {
+  const corpo = h('div', {});
+  alvo.append(cabPagina('Categorias', 'Organize as categorias: corrija nomes e junte as repetidas (ex.: "Supermercado" e "Mercado"). Vale para todos os lançamentos, gastos fixos e limites.'), corpo);
+  async function carregar() {
+    limpar(corpo).append(h('p', { class: 'carregando' }, 'Carregando…'));
+    const r = await GET('/api/categorias');
+    const renomear = (de, sugestao) => {
+      const para = h('input', { type: 'text', maxlength: 40, value: sugestao || de, list: 'cats-ren' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+      modal({ titulo: 'Renomear ou juntar "' + de + '"', corpo: h('div', {}, campo('Novo nome', h('div', {}, para, h('datalist', { id: 'cats-ren' }, r.itens.filter(x => x.nome !== de).map(x => h('option', { value: x.nome })))), { dica: 'Escolha o nome de outra categoria para juntar as duas.' }), msg),
+        botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => {
+          msg.textContent = '';
+          const destino = r.itens.find(x => x.nome.toLowerCase() === para.value.trim().toLowerCase() && x.nome !== de);
+          if (destino && !(await confirmar('Juntar categorias?', `Os lançamentos de "${de}" passam para "${destino.nome}". Se vocês tiverem limite nas duas, fica o de "${destino.nome}".`, 'Juntar'))) return;
+          try { const x = await POST('/api/categorias/renomear', { de, para: destino ? destino.nome : para.value }); c(); toast(x.total + ' registro(s) atualizado(s).'); await carregarDominios(true); carregar(); } catch (e) { msg.textContent = e.message; } } }] });
+    };
+    limpar(corpo).append(...[
+      r.parecidas.length ? h('div', { class: 'painel' }, h('h2', {}, 'Parecem ser a mesma'), h('p', { class: 'sub' }, 'Nomes parecidos espalham os totais nos gráficos e nos limites. Junte se forem a mesma coisa.'),
+        h('div', { class: 'linhas' }, r.parecidas.map(([a, b]) => [h('span', {}, `"${a}" e "${b}"`), h('span', {}, h('button', { class: 'btn sec mini', type: 'button', onclick: () => renomear(b, a) }, 'Juntar em "' + a + '"'), ' ', h('button', { class: 'btn sec mini', type: 'button', onclick: () => renomear(a, b) }, 'Juntar em "' + b + '"'))]))) : null,
+      h('div', { class: 'painel' }, h('h2', {}, 'Todas as categorias'), r.sem_categoria ? h('p', { class: 'sub' }, r.sem_categoria + ' lançamento(s) sem categoria — a categoria sugerida aparece sozinha nos próximos lançamentos.') : null,
+        tabela([{ titulo: 'Categoria', f: x => h('div', {}, x.nome, x.grafias.length > 1 ? h('div', { class: 'sec-txt' }, 'escrita de ' + x.grafias.length + ' jeitos: ' + x.grafias.join(', ')) : null, x.padrao ? h('span', { class: 'chip', style: { marginLeft: '6px' } }, 'padrão') : null) },
+          { titulo: 'Cartão', num: true, f: x => x.compras || '—' }, { titulo: 'Pix/débito', num: true, f: x => x.gastos || '—' }, { titulo: 'Fixos', num: true, f: x => x.fixos || '—' }, { titulo: 'Seus limites', num: true, f: x => x.limites || '—' },
+          { titulo: '', f: x => x.total ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => renomear(x.nome) }, ico('editar'), x.grafias.length > 1 ? 'Padronizar' : 'Renomear / juntar') : h('span', { class: 'dica' }, 'sem uso') }],
+          r.itens, { vazio: 'Nenhuma categoria.' }))].filter(Boolean));
+  }
+  await carregar();
+}
+return { render };
+})();
+</script>
+
 <script>/* main */
 const __m_main = (() => {
-const { h, ico, limpar, qs, iniciais, primeiroNome } = __m_util;
+const { h, ico, limpar, qs, iniciais, primeiroNome, modoDiscreto, definirDiscreto } = __m_util;
 const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
 const { toast, campo } = __m_ui;
 const ROTAS = {
   resumo: { titulo: 'Início', icone: 'home', grupo: 'Visão geral', cor: '#0E4D5B', mod: () => __m_pages_resumo },
   acerto: { titulo: 'Acerto do mês', icone: 'balanca', grupo: 'Visão geral', cor: '#5E5CE6', mod: () => __m_pages_acerto },
+  vencimentos: { titulo: 'Vencimentos', icone: 'calendario', grupo: 'Visão geral', cor: '#FF2D55', mod: () => __m_pages_vencimentos },   // V1.5
+  busca: { titulo: 'Buscar', icone: 'lupa', grupo: 'Visão geral', cor: '#007AFF', mod: () => __m_pages_busca },   // V1.5
   faturas: { titulo: 'Cartões e faturas', icone: 'cartao', grupo: 'Lançamentos', cor: '#F28C38', mod: () => __m_pages_faturas },
   gastos: { titulo: 'Pix e débito', icone: 'pix', grupo: 'Lançamentos', cor: '#30B0C7', mod: () => __m_pages_gastos },
   fixos: { titulo: 'Gastos fixos', icone: 'repetir', grupo: 'Lançamentos', cor: '#AF52DE', mod: () => __m_pages_fixos },
   ganhos: { titulo: 'Ganhos', icone: 'carteira', grupo: 'Planejamento', cor: '#34C759', mod: () => __m_pages_ganhos },
   metas: { titulo: 'Metas', icone: 'alvo', grupo: 'Planejamento', cor: '#FF3B30', mod: () => __m_pages_metas },
+  categorias: { titulo: 'Categorias', icone: 'etiqueta', grupo: 'Planejamento', cor: '#A2845E', mod: () => __m_pages_categorias },   // V1.5
   conta: { titulo: 'Minha conta', icone: 'usuario', grupo: 'Conta', cor: '#8E8E93', mod: () => __m_pages_conta },
   conferencia: { titulo: 'Conferência dos dados', icone: 'escudo', grupo: 'Conta', cor: '#FF9F0A', mod: () => __m_pages_conferencia },
   historico: { titulo: 'Histórico de alterações', icone: 'relogio', grupo: 'Conta', cor: '#636366', mod: () => __m_pages_historico },
@@ -2464,9 +2824,14 @@ function desenharShell() {
   const trilha = h('div', { class: 'trilha' }), conteudo = h('div', { class: 'conteudo', id: 'conteudo' });
   const sino = montarSino();
   const depoisDeLancar = () => { if (rotaAtual) rotear(); atualizarAvisos(true); };
+  // V1.5: modo discreto — esconde os valores (ex.: ao abrir o app em público); a escolha fica neste aparelho
+  const olho = h('button', { class: 'btn sec mini so-icone olho', type: 'button', 'data-sem-trava': '1', onclick: () => { definirDiscreto(!modoDiscreto()); pintarOlho(); toast(modoDiscreto() ? 'Valores escondidos neste aparelho.' : 'Valores à mostra.'); if (rotaAtual) rotear(); } });
+  const pintarOlho = () => { limpar(olho).append(ico(modoDiscreto() ? 'olhoX' : 'olho')); olho.title = modoDiscreto() ? 'Mostrar os valores' : 'Esconder os valores (modo discreto)'; olho.setAttribute('aria-label', olho.title); olho.setAttribute('aria-pressed', String(modoDiscreto())); };
+  pintarOlho(); definirDiscreto(modoDiscreto());
   const sair = h('button', { class: 'btn sec mini sair', type: 'button', title: 'Sair', onclick: async () => { const t = lerManter(); definirManter(''); esquecerAparelho(); try { await POST('/api/auth/sair', { token: t }); } catch (_) {} definirSessao(''); estado.perfil = null; estado.dominios = null; location.hash = '#/login'; rotear(); } }, ico('sair'), h('span', { class: 'txt' }, 'Sair'));
   const main = h('div', { class: 'principal' }, h('div', { class: 'topo' }, h('button', { class: 'btn sec mini menu-btn', type: 'button', 'aria-label': 'Abrir menu', onclick: () => abrirMenu() }, ico('menu')), trilha,
-      sino.el,
+      h('button', { class: 'btn sec mini so-icone', type: 'button', title: 'Buscar lançamentos', 'aria-label': 'Buscar lançamentos', onclick: () => ir('busca') }, ico('lupa')),
+      olho, sino.el,
       h('button', { class: 'btn mini pix', type: 'button', title: 'Novo gasto no pix/débito', onclick: () => __m_pages_gastos.formGasto(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Pix')),
       h('button', { class: 'btn mini', type: 'button', title: 'Nova compra no cartão', onclick: () => __m_pages_faturas.formCompra(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Cartão')), sair),
     conteudo, h('footer', { class: 'rodape' }, 'Gestão Financeira ' + (window.APP_VERSAO || '')));

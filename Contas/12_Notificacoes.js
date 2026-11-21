@@ -87,7 +87,7 @@ var NT = (function () {
     D.atualizarVarios('notificacoes', alt);   // V1.4 (do SIG): uma localização e linhas vizinhas num só bloco, em vez de uma gravação por aviso
     return { ok: true, marcadas: n, nao_lidas: naoLidas(email) };
   }
-  return { compra: compra, gasto: gasto, lote: lote, listar: listar, naoLidas: naoLidas, marcarLidas: marcarLidas };
+  return { avisar: criar, compra: compra, gasto: gasto, lote: lote, listar: listar, naoLidas: naoLidas, marcarLidas: marcarLidas };
 })();
 
 rota_('GET', '/api/notificacoes', {}, function (c) { return { itens: NT.listar(c.perfil.email, 50), nao_lidas: NT.naoLidas(c.perfil.email) }; });

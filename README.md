@@ -16,6 +16,8 @@ build.mjs    gera a pasta docs/ a partir de Contas/
    `12_Notificacoes.js` e o HTML `JS_Conferencia`. Veja a lista completa em `ALTERACOES_V1.3.md`.
    Na V1.4 há 1 arquivo **novo**: `15_Compactar.js`. Veja o que mudou em `ALTERACOES_V1.4.md`
    (planilha mais leve, cache mais rápido, entrar com menos idas ao servidor).
+   Na V1.5 há 2 arquivos **novos**: `16_Controle.js` e o HTML `JS_Controle` (busca, vencimentos, categorias, previsão e teto do mês,
+   fechar o mês, desfazer, modo discreto). Veja `ALTERACOES_V1.5.md`.
 2. Rode `diagnostico()` uma vez no editor e aceite a autorização nova (a V1.3 confere o ícone da aba pela internet).
    O ícone da aba é publicado sozinho na primeira abertura — não precisa mais rodar `criarIcone()`.
 3. **Implantar › Gerenciar implantações › ✏️ editar › Versão: Nova versão › Implantar.**

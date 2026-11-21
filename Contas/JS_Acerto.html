@@ -2,7 +2,7 @@
 const __m_pages_acerto = (() => {
 const { h, limpar, brl, fmtData, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
 const { GET, POST, DEL, baixar } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, segmentos, chipDivisao } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, segmentos, chipDivisao, aposExcluir } = __m_ui;
 const { fraseAcerto } = __m_pages_resumo;
 
 function formAcerto(perfil, ac, aoSalvar) {
@@ -38,7 +38,13 @@ async function render(alvo, { perfil }) {
     else if (!ac.pendente) { frase = ['Contas acertadas ✓']; det = `Saldo do mês de ${brl(ac.devido)} já acertado.`; zerado = true; }
     else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); det = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : `${primeiroNome(a.nome)} tem a receber ${brl(a.receber)} e ${primeiroNome(b.nome)} tem a receber ${brl(b.receber)}: a diferença é ${brl(ac.devido)}.`; }
     corpo.append(h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Resultado de ' + ac.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, det)),
-      h('button', { class: 'btn', type: 'button', onclick: () => formAcerto(perfil, ac, recarregar) }, ico('troca'), 'Registrar acerto')));
+      ac.fechado ? null : h('button', { class: 'btn', type: 'button', onclick: () => formAcerto(perfil, ac, recarregar) }, ico('troca'), 'Registrar acerto')));
+    // V1.5: fechamento do mês — depois do acerto, trava o que muda os números do mês (reabrir fica registrado e avisa o outro)
+    const hojeMes = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 7);
+    if (ac.fechado) corpo.append(h('div', { class: 'aviso fechado' }, ico('cadeado'), h('span', {}, ` ${ac.rotulo} está fechado (por ${primeiroNome(ac.fechado.por_nome)} em ${fmtData(String(ac.fechado.em).slice(0, 10))}). Lançamentos que mudam os valores deste mês ficam travados; descrição e categoria ainda podem ser corrigidas. `),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { if (!(await confirmar('Reabrir ' + ac.rotulo + '?', 'Os lançamentos deste mês voltam a poder ser alterados. ' + (perfil.parceiro ? perfil.parceiro.apelido + ' será avisado(a).' : ''), 'Reabrir'))) return; try { await POST('/api/meses/' + mes + '/reabrir', {}); toast('Mês reaberto.'); recarregar(); } catch (e) { toast(e.message, true); } } }, 'Reabrir o mês')));
+    else if (mes <= hojeMes) corpo.append(h('div', { class: 'aviso info fechar-mes' }, ico('cadeado'), h('span', {}, ac.pendente ? ' Quando o acerto estiver feito, feche o mês: os números dele não mudam mais sem querer. ' : ' Tudo acertado? Feche o mês para os números dele não mudarem sem querer. '),
+      h('button', { class: 'btn sec mini', type: 'button', onclick: async () => { if (!(await confirmar('Fechar ' + ac.rotulo + '?', (ac.pendente ? `Ainda falta acertar ${brl(ac.pendente.valor)}. ` : '') + 'Compras, pix e gastos fixos que mudam os valores deste mês ficam travados até alguém reabrir. Marcar fatura ou conta como paga continua liberado.', 'Fechar o mês'))) return; try { await POST('/api/meses/' + mes + '/fechar', {}); toast(ac.rotulo + ' fechado.'); recarregar(); } catch (e) { toast(e.message, true); } } }, 'Fechar o mês')));
     // comparação
     const tot = v => v == null ? h('span', { title: 'Privado: você vê só o que é dividido' }, '—') : brl(v);
     const linha = (rot, fa, fb, cls) => [h('td', { class: cls || '' }, rot), h('td', { class: 'num ' + (cls || '') }, fa), h('td', { class: 'num ' + (cls || '') }, fb)];
@@ -53,7 +59,7 @@ async function render(alvo, { perfil }) {
           h('tfoot', {}, h('tr', {}, linha('Total a receber do outro', brl(a.receber), brl(b.receber))))))),
       h('div', { class: 'painel' }, h('h2', {}, 'Acertos registrados'), h('p', { class: 'sub' }, 'Pagamentos feitos entre vocês referentes a ' + ac.rotulo + '.'),
         tabela([{ titulo: 'Data', f: x => fmtData(x.data) }, { titulo: 'Quem pagou', f: x => primeiroNome(x.de_nome) + ' → ' + primeiroNome(x.para_nome) }, { titulo: 'Valor', num: true, f: x => brl(x.valor) },
-          { titulo: '', f: x => h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir acerto?', `Excluir o acerto de ${brl(x.valor)} (${fmtData(x.data)})?`, 'Excluir', true))) return; try { await DEL('/api/acertos/' + x.id); toast('Acerto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) }],
+          { titulo: '', f: x => h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir acerto?', `Excluir o acerto de ${brl(x.valor)} (${fmtData(x.data)})?`, 'Excluir', true))) return; try { const rx = await DEL('/api/acertos/' + x.id); aposExcluir(rx, 'Acerto excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) }],
           ac.acertos, { vazio: 'Nenhum acerto registrado neste mês.' }),
         ac.pendente ? h('div', { class: 'aviso atencao' }, 'Falta acertar ', h('b', {}, brl(ac.pendente.valor)), ` (${primeiroNome(ac.pendente.devedor.nome)} → ${primeiroNome(ac.pendente.credor.nome)}).`) : null)));
     // itens

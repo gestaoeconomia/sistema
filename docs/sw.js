@@ -1,5 +1,5 @@
 // Service worker: guarda a "casca" do app; sempre tenta a rede primeiro (atualizações chegam na hora).
-const CACHE = 'gestao-financeira-V1.4_-_20_11_2026';
+const CACHE = 'gestao-financeira-V1.5_-_20_11_2026';
 const CASCA = ['./', './index.html', './config.js', './manifest.webmanifest', './icones/icone-180.png', './icones/icone-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CASCA)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

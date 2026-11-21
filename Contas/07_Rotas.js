@@ -8,16 +8,19 @@ function exigirDono_(dono, perfil, msg) { if (dono !== perfil.email) throw erro_
  * Ganhos e metas são do casal (os dois veem). No acerto, os totais gerais do outro (faturas e pix) ficam ocultos.
  */
 function acertoPara_(ac, ve) { ac.pessoas.forEach(function (p) { if (p.email !== ve) { p.cartao.total = null; p.pix.total = null; } }); return ac; }
+/** V1.5: campos que mudam valores (acerto, totais do mês). Alterar só descrição, categoria ou observação é sempre permitido, mesmo em mês fechado. */
+function mudouValores_(a, b, campos) { return campos.some(function (k) { return String(a[k] == null ? '' : a[k]) !== String(b[k] == null ? '' : b[k]); }); }
+var CAMPOS_COMPRA_ = ['cartao_id', 'valor_total', 'parcelas', 'primeira_fatura', 'divisao', 'terceiro', 'terceiro_valor'], CAMPOS_GASTO_ = ['valor', 'data', 'divisao'], CAMPOS_REC_ = ['tipo', 'cartao_id', 'valor', 'divisao', 'inicio', 'fim'], CAMPOS_GANHO_ = ['tipo', 'valor', 'inicio', 'fim'];
 function exigirVisivel_(dono, divisao, perfil, oQue) { if (!R.visivel(dono, divisao, perfil.email)) throw erro_(404, oQue + ' não encontrado(a).'); }
 
 // ---------- rotas públicas e de sessão ----------
 rota_('GET', '/api/config', { publica: true }, function () { var aberto = true; try { aberto = A.cadastroAberto(); } catch (e) { /* planilha ainda não instalada */ } return { cadastro_aberto: aberto, versao: APP.VERSAO }; });
 // V1.4 (do SIG V6.3): entrar, retomar e "quem sou eu" já trazem as listas dos formulários (uma ida a menos ao servidor ao abrir o app)
-rota_('POST', '/api/auth/entrar', { publica: true }, function (c) { var r = A.entrar(c.body.email, c.body.senha, c.body.manter === true); return { ok: true, sessao: r.sessao, token: r.token, perfil: r.perfil, dominios: dominios_() }; });
-rota_('POST', '/api/auth/retomar', { publica: true }, function (c) { var r = A.retomar(c.body.token); r.dominios = dominios_(); return r; });
+rota_('POST', '/api/auth/entrar', { publica: true }, function (c) { var r = A.entrar(c.body.email, c.body.senha, c.body.manter === true); return { ok: true, sessao: r.sessao, token: r.token, perfil: r.perfil, dominios: dominios_(r.perfil && r.perfil.email) }; });
+rota_('POST', '/api/auth/retomar', { publica: true }, function (c) { var r = A.retomar(c.body.token); r.dominios = dominios_(r.perfil && r.perfil.email); return r; });
 rota_('POST', '/api/auth/sair', { publica: true }, function (c) { return A.sair(c.body.token); });
 rota_('POST', '/api/cadastro', { publica: true }, function (c) { return A.cadastrar(c.body); });
-rota_('GET', '/api/eu', { publica: true }, function (c) { var r = { perfil: c.perfil || null }; if (c.perfil && c.query.dom === '1') r.dominios = dominios_(); return r; });
+rota_('GET', '/api/eu', { publica: true }, function (c) { var r = { perfil: c.perfil || null }; if (c.perfil && c.query.dom === '1') r.dominios = dominios_(c.perfil.email); return r; });
 
 // ---------- conta ----------
 rota_('POST', '/api/auth/alterar-senha', {}, function (c) { return A.alterarSenha(c.perfil.email, c.body.atual, c.body.nova); });
@@ -29,15 +32,16 @@ rota_('PUT', '/api/conta', {}, function (c) {
   A.esquecerPerfil(); return { perfil: A.perfilAtual() };
 });
 
-function dominios_() {
+function dominios_(email) {
   return {
     usuarios: P.ativos().map(function (u) { return { email: u.email, nome: u.nome, apelido: P.primeiroNome(u.nome) }; }),
     cartoes: D.todos('cartoes').map(function (x) { var o = limpo_(x); o.rotulo = R.nomeCartao(x); o.titular_nome = P.nomeDe(x.titular); return o; })
       .sort(function (a, b) { return b.ativo - a.ativo || ORD_PT_(a.rotulo, b.rotulo); }),
-    categorias: R.categorias(), hoje: D.hojeISO(), mes_atual: U.mesAtual()
+    categorias: R.categorias(), hoje: D.hojeISO(), mes_atual: U.mesAtual(),
+    sugestoes: email ? CATS.sugestoes(email) : { f: {}, p: {} }   // V1.5: categoria sugerida pela descrição (só do que a pessoa pode ver)
   };
 }
-rota_('GET', '/api/dominios', {}, function () { return dominios_(); });
+rota_('GET', '/api/dominios', {}, function (c) { return dominios_(c.perfil.email); });
 
 // ---------- resumo (início) ----------
 rota_('GET', '/api/resumo', {}, function (c) {
@@ -48,7 +52,7 @@ rota_('GET', '/api/resumo', {}, function (c) {
   var pessoas = [{ email: ve, nome: c.perfil.nome, faturas: cart, total_faturas: U.reais(cart.reduce(function (s, f) { return s + U.centavos(f.total); }, 0)), total_pix: U.reais(pix) }];
   var fim = R.parcelamentos(mes, '', ve).filter(function (p) { return p.ultima_fatura === mes; });
   return { mes: mes, rotulo: U.rotuloMes(mes), pessoas: pessoas, acerto: { devido: ac.devido, pago: ac.pago, restante_abs: ac.restante_abs, devedor: ac.devedor, credor: ac.credor, pendente: ac.pendente, completo: ac.completo },
-    projecao: R.projecao(mes, 6, ve), terminam: fim, aberto: R.historicoAcertos().aberto, metas: M.listar(mes) };
+    fechado: FECH.info(mes), projecao: R.projecao(mes, 6, ve), terminam: fim, aberto: R.historicoAcertos().aberto, metas: M.listar(mes) };
 });
 
 // ---------- cartões ----------
@@ -96,7 +100,7 @@ rota_('GET', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
   var o = limpo_(cp), car = D.porId('cartoes', cp.cartao_id); exigirVisivel_(car ? car.titular : '', cp.divisao, c.perfil, 'Compra'); o.divisao_rotulo = car ? R.rotuloDivisao(cp.divisao, car.titular) : cp.divisao; o.parcelas_lista = R.parcelas(cp).map(function (p) { return { n: p.n, mes: p.mes, rotulo: U.rotuloMes(p.mes), valor: U.reais(p.c) }; }); return o;
 });
 rota_('POST', '/api/compras', {}, function (c) {
-  var v = R.validarCompra(c.body, null, c.perfil);
+  var v = R.validarCompra(c.body, null, c.perfil); FECH.exigirAbertos(FECH.mesesCompra(v), 'Esta compra');
   v.id = D.proximoId('CMP', 6); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO(); D.inserir('compras', v);
   NT.compra(c.perfil, 'novo', v, null);
   D.auditar(c.perfil.email, 'Lançou compra no cartão', 'compras', v.id, { descricao: v.descricao, valor: v.valor_total, parcelas: v.parcelas, divisao: v.divisao });
@@ -118,6 +122,7 @@ rota_('PUT', '/api/compras/(CMP-\\d+)/divisao', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão altera esta compra.');
   if (R.DIVISOES.indexOf(c.body.divisao) < 0) throw erro_(400, 'Divisão inválida.');
+  if (c.body.divisao !== at.divisao) FECH.exigirAbertos(FECH.mesesCompra(at), 'Mudar a divisão desta compra');
   var antes = copia_(at), novo = copia_(at); novo.divisao = c.body.divisao; novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo); // (o atualizar muda o registro em memória: "antes" guarda a cópia)
   if (novo.divisao !== antes.divisao) NT.compra(c.perfil, 'divisao', novo, antes);
   D.auditar(c.perfil.email, 'Mudou a divisão da compra', 'compras', id, { de: at.divisao, para: novo.divisao });
@@ -128,6 +133,7 @@ rota_('PUT', '/api/compras/(CMP-\\d+)/terceiro', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão altera esta compra.');
   var t = R.validarTerceiro({ terceiro: c.body.terceiro || '', terceiro_valor: c.body.terceiro_valor, terceiro_recebido: c.body.terceiro_recebido }, null, U.centavos(at.valor_total));
+  if (mudouValores_(at, t, ['terceiro', 'terceiro_valor'])) FECH.exigirAbertos(FECH.mesesCompra(at), 'Mudar o terceiro desta compra');
   var novo = copia_(at); Object.keys(t).forEach(function (k) { novo[k] = t[k]; }); novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo);
   D.auditar(c.perfil.email, t.terceiro ? 'Definiu terceiro na compra' : 'Removeu terceiro da compra', 'compras', id, { terceiro: t.terceiro, valor: t.terceiro_valor, recebido: t.terceiro_recebido, divisao: at.divisao });
   return limpo_(novo);
@@ -143,6 +149,7 @@ rota_('GET', '/api/terceiros', {}, function (c) {
 });
 rota_('POST', '/api/compras/lote', {}, function (c) {
   var lista = R.validarLote(c.body, c.perfil), agora = D.agoraISO(); // valida tudo antes de gravar: ou entram todos, ou nenhum
+  var mesesL = []; lista.forEach(function (v) { FECH.mesesCompra(v).forEach(function (m) { if (mesesL.indexOf(m) < 0) mesesL.push(m); }); }); FECH.exigirAbertos(mesesL, 'Estes lançamentos');
   var ids = D.reservarIds('CMP', lista.length, 6);   // V1.4 (do SIG V6.9): todos os IDs numa reserva só
   lista.forEach(function (v, i) { v.id = ids[i]; v.criado_por = c.perfil.email; v.criado_em = agora; });
   D.inserirVarios('compras', lista); // uma única escrita na planilha
@@ -155,6 +162,7 @@ rota_('PUT', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão altera esta compra.');
   var v = R.validarCompra(c.body, at, c.perfil), antes = copia_(at), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
+  if (mudouValores_(antes, novo, CAMPOS_COMPRA_)) FECH.exigirAbertos(FECH.mesesCompra(antes).concat(FECH.mesesCompra(novo)), 'Esta alteração');
   novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('compras', novo);
   if (['descricao', 'valor_total', 'parcelas', 'data_compra', 'divisao', 'primeira_fatura', 'cartao_id'].some(function (k) { return String(antes[k]) !== String(novo[k]); })) NT.compra(c.perfil, 'alterou', novo, antes);
   D.auditar(c.perfil.email, 'Alterou compra no cartão', 'compras', id, v); return limpo_(novo);
@@ -162,7 +170,8 @@ rota_('PUT', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
 rota_('DELETE', '/api/compras/(CMP-\\d+)', {}, function (c, id) {
   var at = D.porId('compras', id); if (!at) throw erro_(404, 'Compra não encontrada.');
   var car = D.porId('cartoes', at.cartao_id); exigirDono_(car && car.titular, c.perfil, 'Só o titular do cartão exclui esta compra.');
-  D.excluir('compras', at); NT.compra(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu compra no cartão', 'compras', id, limpo_(at)); return { ok: true };
+  FECH.exigirAbertos(FECH.mesesCompra(at), 'Excluir esta compra');
+  D.excluir('compras', at); NT.compra(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu compra no cartão', 'compras', id, limpo_(at)); return { ok: true, desfazer: DESF.guardar('compras', at, c.perfil) };
 });
 
 // ---------- pix / débito ----------
@@ -178,19 +187,21 @@ rota_('GET', '/api/gastos', {}, function (c) {
     return { email: u.email, nome: u.nome, total: u.email === ve ? U.reais(t.total) : null, compartilhado: U.reais(t.compartilhado), receber: U.reais(t.receber) }; }) };
 });
 rota_('POST', '/api/gastos', {}, function (c) {
-  var v = R.validarGasto(c.body); v.id = D.proximoId('GAS', 6); v.pago_por = c.perfil.email; v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
+  var v = R.validarGasto(c.body); FECH.exigirAbertos([String(v.data).slice(0, 7)], 'Este gasto'); v.id = D.proximoId('GAS', 6); v.pago_por = c.perfil.email; v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
   D.inserir('gastos', v); NT.gasto(c.perfil, 'novo', v, null); D.auditar(c.perfil.email, 'Lançou gasto pix/débito', 'gastos', v.id, { descricao: v.descricao, valor: v.valor, divisao: v.divisao }); return limpo_(v);
 });
 rota_('PUT', '/api/gastos/(GAS-\\d+)', {}, function (c, id) {
   var at = D.porId('gastos', id); if (!at) throw erro_(404, 'Gasto não encontrado.'); exigirDono_(at.pago_por, c.perfil, 'Só quem pagou altera este gasto.');
   var v = R.validarGasto(c.body), antes = copia_(at), novo = copia_(at); Object.keys(v).forEach(function (k) { novo[k] = v[k]; });
+  if (mudouValores_(antes, novo, CAMPOS_GASTO_)) FECH.exigirAbertos([String(antes.data).slice(0, 7), String(novo.data).slice(0, 7)], 'Esta alteração');
   novo.atualizado_por = c.perfil.email; novo.atualizado_em = D.agoraISO(); D.atualizar('gastos', novo);
   if (['descricao', 'valor', 'data', 'divisao', 'forma'].some(function (k) { return String(antes[k]) !== String(novo[k]); })) NT.gasto(c.perfil, 'alterou', novo, antes);
   D.auditar(c.perfil.email, 'Alterou gasto pix/débito', 'gastos', id, v); return limpo_(novo);
 });
 rota_('DELETE', '/api/gastos/(GAS-\\d+)', {}, function (c, id) {
   var at = D.porId('gastos', id); if (!at) throw erro_(404, 'Gasto não encontrado.'); exigirDono_(at.pago_por, c.perfil, 'Só quem pagou exclui este gasto.');
-  D.excluir('gastos', at); NT.gasto(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu gasto pix/débito', 'gastos', id, limpo_(at)); return { ok: true };
+  FECH.exigirAbertos([String(at.data).slice(0, 7)], 'Excluir este gasto');
+  D.excluir('gastos', at); NT.gasto(c.perfil, 'excluiu', null, at); D.auditar(c.perfil.email, 'Excluiu gasto pix/débito', 'gastos', id, limpo_(at)); return { ok: true, desfazer: DESF.guardar('gastos', at, c.perfil) };
 });
 
 // ---------- gastos fixos (recorrentes) ----------
@@ -219,7 +230,7 @@ rota_('GET', '/api/recorrentes', {}, function (c) {
 });
 rota_('GET', '/api/recorrentes/(REC-\\d+)', {}, function (c, id) { var rc = D.porId('recorrentes', id); if (!rc) throw erro_(404, 'Gasto fixo não encontrado.'); exigirVisivel_(rc.dono, rc.divisao, c.perfil, 'Gasto fixo'); return recInfo_(rc, mesQuery_(c.query)); });
 rota_('POST', '/api/recorrentes', {}, function (c) {
-  var v = R.validarRecorrente(c.body, null, c.perfil); v.id = D.proximoId('REC', 4); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
+  var v = R.validarRecorrente(c.body, null, c.perfil); FECH.exigirFaixa(v.inicio, v.fim, 'Este gasto fixo'); v.id = D.proximoId('REC', 4); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
   D.inserir('recorrentes', v); D.auditar(c.perfil.email, 'Criou gasto fixo', 'recorrentes', v.id, { descricao: v.descricao, valor: v.valor, inicio: v.inicio }); return limpo_(v);
 });
 /**
@@ -230,13 +241,14 @@ rota_('PUT', '/api/recorrentes/(REC-\\d+)', {}, function (c, id) {
   var at = D.porId('recorrentes', id); if (!at) throw erro_(404, 'Gasto fixo não encontrado.'); exigirDono_(at.dono, c.perfil, 'Só quem cadastrou altera este gasto fixo.');
   var desde = String(c.body.a_partir_de || '').slice(0, 7), b = copia_(c.body); delete b.a_partir_de;
   if (U.mesValido(desde) && desde > at.inicio && (!at.fim || desde <= at.fim)) {
-    b.inicio = desde; var novo = R.validarRecorrente(b, at, c.perfil); novo.id = D.proximoId('REC', 4); novo.criado_por = c.perfil.email; novo.criado_em = D.agoraISO();
+    b.inicio = desde; var novo = R.validarRecorrente(b, at, c.perfil); FECH.exigirFaixa(desde, '', 'Esta alteração'); novo.id = D.proximoId('REC', 4); novo.criado_por = c.perfil.email; novo.criado_em = D.agoraISO();
     var velho = copia_(at); velho.fim = U.somarMeses(desde, -1); velho.atualizado_por = c.perfil.email; velho.atualizado_em = D.agoraISO();
     D.atualizar('recorrentes', velho); D.inserir('recorrentes', novo);
     D.auditar(c.perfil.email, 'Alterou gasto fixo a partir de ' + desde, 'recorrentes', id + '→' + novo.id, { valor: novo.valor, divisao: novo.divisao });
     return { ok: true, id: novo.id, dividiu: true };
   }
   var v = R.validarRecorrente(b, at, c.perfil), n = copia_(at); Object.keys(v).forEach(function (k) { n[k] = v[k]; });
+  if (mudouValores_(at, n, CAMPOS_REC_)) { FECH.exigirFaixa(at.inicio, at.fim, 'Esta alteração'); FECH.exigirFaixa(n.inicio, n.fim, 'Esta alteração'); }
   n.atualizado_por = c.perfil.email; n.atualizado_em = D.agoraISO(); D.atualizar('recorrentes', n);
   D.auditar(c.perfil.email, 'Alterou gasto fixo', 'recorrentes', id, v); return { ok: true, id: id };
 });
@@ -244,12 +256,14 @@ rota_('PUT', '/api/recorrentes/(REC-\\d+)/encerrar', {}, function (c, id) {
   var at = D.porId('recorrentes', id); if (!at) throw erro_(404, 'Gasto fixo não encontrado.'); exigirDono_(at.dono, c.perfil, 'Só quem cadastrou encerra este gasto fixo.');
   var ult = String(c.body.ultimo_mes || '').slice(0, 7); if (!U.mesValido(ult)) throw erro_(400, 'Informe o último mês do gasto fixo.');
   if (ult < at.inicio) throw erro_(400, 'O último mês não pode ser antes do início (' + U.rotuloMes(at.inicio) + '). Se nunca aconteceu, exclua o gasto fixo.');
+  FECH.exigirFaixa(U.somarMeses(ult, 1), at.fim, 'Encerrar neste mês');
   var n = copia_(at); n.fim = ult; n.atualizado_por = c.perfil.email; n.atualizado_em = D.agoraISO(); D.atualizar('recorrentes', n);
   D.auditar(c.perfil.email, 'Encerrou gasto fixo', 'recorrentes', id, { ultimo_mes: ult }); return { ok: true };
 });
 rota_('DELETE', '/api/recorrentes/(REC-\\d+)', {}, function (c, id) {
   var at = D.porId('recorrentes', id); if (!at) throw erro_(404, 'Gasto fixo não encontrado.'); exigirDono_(at.dono, c.perfil, 'Só quem cadastrou exclui este gasto fixo.');
-  D.excluir('recorrentes', at); D.auditar(c.perfil.email, 'Excluiu gasto fixo', 'recorrentes', id, limpo_(at)); return { ok: true };
+  FECH.exigirFaixa(at.inicio, at.fim, 'Excluir este gasto fixo');
+  D.excluir('recorrentes', at); D.auditar(c.perfil.email, 'Excluiu gasto fixo', 'recorrentes', id, limpo_(at)); return { ok: true, desfazer: DESF.guardar('recorrentes', at, c.perfil) };
 });
 
 // ---------- metas (planejamento) ----------
@@ -289,14 +303,14 @@ rota_('POST', '/api/metas/(MET-\\d+)/aportes', {}, function (c, id) {
 rota_('DELETE', '/api/aportes/(APO-\\d+)', {}, function (c, id) {
   var a = D.porId('aportes', id); if (!a) throw erro_(404, 'Depósito não encontrado.');
   if (a.criado_por !== c.perfil.email && a.quem !== c.perfil.email) throw erro_(403, 'Só quem registrou exclui este depósito.');
-  D.excluir('aportes', a); D.auditar(c.perfil.email, 'Excluiu depósito da meta', 'metas', a.meta_id, limpo_(a)); return { ok: true };
+  D.excluir('aportes', a); D.auditar(c.perfil.email, 'Excluiu depósito da meta', 'metas', a.meta_id, limpo_(a)); return { ok: true, desfazer: DESF.guardar('aportes', a, c.perfil) };
 });
 
 // ---------- ganhos e painel do início ----------
 rota_('GET', '/api/painel', {}, function (c) { return PN.painel(mesQuery_(c.query), c.perfil.email); });
 rota_('GET', '/api/rendas', {}, function (c) { return PN.listar(mesQuery_(c.query)); });
 rota_('POST', '/api/rendas', {}, function (c) {
-  var v = PN.validar(c.body, null, c.perfil); v.id = D.proximoId('GAN', 4); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
+  var v = PN.validar(c.body, null, c.perfil); FECH.exigirFaixa(v.inicio, v.fim, 'Este ganho'); v.id = D.proximoId('GAN', 4); v.criado_por = c.perfil.email; v.criado_em = D.agoraISO();
   D.inserir('rendas', v); D.auditar(c.perfil.email, 'Cadastrou ganho', 'rendas', v.id, { descricao: v.descricao, valor: v.valor, tipo: v.tipo }); return limpo_(v);
 });
 /** Alterar ganho. Com "a_partir_de" depois do início (ex.: aumento de salário), os meses anteriores não mudam. */
@@ -304,29 +318,33 @@ rota_('PUT', '/api/rendas/(GAN-\\d+)', {}, function (c, id) {
   var at = D.porId('rendas', id); if (!at) throw erro_(404, 'Ganho não encontrado.'); exigirDono_(at.pessoa, c.perfil, 'Cada um altera os próprios ganhos.');
   var desde = String(c.body.a_partir_de || '').slice(0, 7), b = copia_(c.body); delete b.a_partir_de;
   if (at.tipo === 'FIXA' && U.mesValido(desde) && desde > at.inicio && (!at.fim || desde <= at.fim)) {
-    b.inicio = desde; var novo = PN.validar(b, at, c.perfil); novo.id = D.proximoId('GAN', 4); novo.criado_por = c.perfil.email; novo.criado_em = D.agoraISO();
+    b.inicio = desde; var novo = PN.validar(b, at, c.perfil); FECH.exigirFaixa(desde, '', 'Esta alteração'); novo.id = D.proximoId('GAN', 4); novo.criado_por = c.perfil.email; novo.criado_em = D.agoraISO();
     var velho = copia_(at); velho.fim = U.somarMeses(desde, -1); velho.atualizado_por = c.perfil.email; velho.atualizado_em = D.agoraISO();
     D.atualizar('rendas', velho); D.inserir('rendas', novo); D.auditar(c.perfil.email, 'Alterou ganho a partir de ' + desde, 'rendas', id + '→' + novo.id, { valor: novo.valor }); return { ok: true, id: novo.id };
   }
   var v = PN.validar(b, at, c.perfil), n = copia_(at); Object.keys(v).forEach(function (k) { n[k] = v[k]; });
+  if (mudouValores_(at, n, CAMPOS_GANHO_)) { FECH.exigirFaixa(at.inicio, at.fim, 'Esta alteração'); FECH.exigirFaixa(n.inicio, n.fim, 'Esta alteração'); }
   n.atualizado_por = c.perfil.email; n.atualizado_em = D.agoraISO(); D.atualizar('rendas', n); D.auditar(c.perfil.email, 'Alterou ganho', 'rendas', id, v); return { ok: true, id: id };
 });
 rota_('PUT', '/api/rendas/(GAN-\\d+)/encerrar', {}, function (c, id) {
   var at = D.porId('rendas', id); if (!at) throw erro_(404, 'Ganho não encontrado.'); exigirDono_(at.pessoa, c.perfil, 'Cada um altera os próprios ganhos.');
   var ult = String(c.body.ultimo_mes || '').slice(0, 7); if (!U.mesValido(ult) || ult < at.inicio) throw erro_(400, 'Último mês inválido.');
+  FECH.exigirFaixa(U.somarMeses(ult, 1), at.fim, 'Encerrar neste mês');
   var n = copia_(at); n.fim = ult; n.atualizado_por = c.perfil.email; n.atualizado_em = D.agoraISO(); D.atualizar('rendas', n); D.auditar(c.perfil.email, 'Encerrou ganho', 'rendas', id, { ultimo_mes: ult }); return { ok: true };
 });
 rota_('DELETE', '/api/rendas/(GAN-\\d+)', {}, function (c, id) {
   var at = D.porId('rendas', id); if (!at) throw erro_(404, 'Ganho não encontrado.'); exigirDono_(at.pessoa, c.perfil, 'Cada um altera os próprios ganhos.');
-  D.excluir('rendas', at); D.auditar(c.perfil.email, 'Excluiu ganho', 'rendas', id, limpo_(at)); return { ok: true };
+  FECH.exigirFaixa(at.inicio, at.fim, 'Excluir este ganho');
+  D.excluir('rendas', at); D.auditar(c.perfil.email, 'Excluiu ganho', 'rendas', id, limpo_(at)); return { ok: true, desfazer: DESF.guardar('rendas', at, c.perfil) };
 });
 
 // ---------- acerto do mês ----------
-rota_('GET', '/api/acerto', {}, function (c) { return acertoPara_(R.acerto(mesQuery_(c.query)), c.perfil.email); });
+rota_('GET', '/api/acerto', {}, function (c) { var r = acertoPara_(R.acerto(mesQuery_(c.query)), c.perfil.email); r.fechado = FECH.info(mesQuery_(c.query)); return r; });
 rota_('GET', '/api/acerto/historico', {}, function () { return R.historicoAcertos(); });
 rota_('POST', '/api/acertos', {}, function (c) {
   var par = P.parceiroDe(c.perfil.email); if (!par) throw erro_(400, 'Ainda não há outra pessoa cadastrada.');
   var mes = String(c.body.mes || ''); if (!U.mesValido(mes)) throw erro_(400, 'Mês inválido.');
+  FECH.exigirAbertos([mes], 'Registrar acerto');
   var cc = U.centavos(c.body.valor); if (isNaN(cc) || cc <= 0) throw erro_(400, 'Informe o valor do acerto.');
   var data = String(c.body.data || D.hojeISO()); if (!U.dataValida(data)) throw erro_(400, U.motivoData(data, 'Data'));
   var paguei = c.body.direcao !== 'RECEBI';
@@ -336,7 +354,8 @@ rota_('POST', '/api/acertos', {}, function (c) {
 rota_('DELETE', '/api/acertos/(ACE-\\d+)', {}, function (c, id) {
   var at = D.porId('acertos', id); if (!at) throw erro_(404, 'Acerto não encontrado.');
   if (at.de !== c.perfil.email && at.para !== c.perfil.email) throw erro_(403, 'Sem permissão.');
-  D.excluir('acertos', at); D.auditar(c.perfil.email, 'Excluiu acerto', 'acertos', id, limpo_(at)); return { ok: true };
+  FECH.exigirAbertos([String(at.mes).slice(0, 7)], 'Excluir este acerto');
+  D.excluir('acertos', at); D.auditar(c.perfil.email, 'Excluiu acerto', 'acertos', id, limpo_(at)); return { ok: true, desfazer: DESF.guardar('acertos', at, c.perfil) };
 });
 
 // ---------- histórico de alterações ----------
@@ -369,7 +388,9 @@ rota_('GET', '/api/exportar\\.csv', { escreve: true }, function (c) {
     linhas.push([it.origem === 'CARTAO' ? 'Cartão' : 'Pix/débito', it.data, it.descricao, it.categoria, it.cartao || it.forma, it.parcela || '', P.nomeDe(it.pagador), R.rotuloDivisao(it.divisao, it.pagador), fmt(U.reais(it.c)), fmt(U.reais(R.parteDoOutro(R.efetivo(it), it.divisao))), fmt(U.reais(R.minhaParte(it, ve))), it.t ? it.terceiro + ' paga ' + fmt(U.reais(it.t)) : '']);
   });
   linhas.push([]); linhas.push(['Resultado', ac.devedor ? ac.devedor.nome + ' deve a ' + ac.credor.nome : 'Sem saldo', '', '', '', '', '', '', fmt(ac.devido), '', '', '']);
-  var csv = '﻿' + linhas.map(function (l) { return l.map(function (x) { x = String(x == null ? '' : x); return /[";\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(';'); }).join('\r\n');
+  // V1.5: texto que começa com = + - @ viraria fórmula no Excel/Planilhas: ganha um apóstrofo na frente (números, como -12,30, ficam como estão)
+  var celula = function (x) { x = String(x == null ? '' : x); if (/^[=+\-@\t\r]/.test(x) && !/^-?\d[\d.]*(,\d+)?$/.test(x)) x = "'" + x; return /[";\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  var csv = '﻿' + linhas.map(function (l) { return l.map(celula).join(';'); }).join('\r\n');
   D.auditar(c.perfil.email, 'Exportou o mês', 'exportar', mes, null);
   return { __arquivo: true, tipo: 'text/csv; charset=utf-8', nome: 'contas_' + mes + '.csv', b64: Utilities.base64Encode(csv, Utilities.Charset.UTF_8) };
 });
@@ -387,7 +408,7 @@ rota_('PUT', '/api/limites/(LIM-\\d+)', {}, function (c, id) {
 });
 rota_('DELETE', '/api/limites/(LIM-\\d+)', {}, function (c, id) {
   var at = D.porId('limites', id); if (!at) throw erro_(404, 'Limite não encontrado.'); exigirDono_(at.dono, c.perfil, 'Cada um altera os próprios limites.');
-  D.excluir('limites', at); D.auditar(c.perfil.email, 'Excluiu limite', 'limites', id, { categoria: at.categoria }); return { ok: true };
+  D.excluir('limites', at); D.auditar(c.perfil.email, 'Excluiu limite', 'limites', id, { categoria: at.categoria }); return { ok: true, desfazer: DESF.guardar('limites', at, c.perfil) };
 });
 
 // ---------- evolução e reserva de emergência ----------

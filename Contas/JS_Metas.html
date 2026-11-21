@@ -2,7 +2,7 @@
 const __m_pages_metas = (() => {
 const { h, limpar, brl, fmtData, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, tabela, modal, confirmar, toast, campo, segmentos } = __m_ui;
+const { cabPagina, tabela, modal, confirmar, toast, campo, segmentos, aposExcluir } = __m_ui;
 
 const CATS = [{ value: 'VIAGEM', label: 'Viagem', icone: 'aviao' }, { value: 'CARRO', label: 'Carro', icone: 'carro' }, { value: 'CASA', label: 'Casa', icone: 'home' },
   { value: 'RESERVA', label: 'Reserva', icone: 'escudo' }, { value: 'ESTUDOS', label: 'Estudos', icone: 'livro' }, { value: 'OUTRO', label: 'Outro', icone: 'alvo' }];
@@ -86,7 +86,7 @@ async function verDepositos(perfil, meta, aoSalvar) {
       { titulo: 'Valor', num: true, f: a => h('span', { class: a.valor < 0 ? 'valor-neg' : '' }, brl(a.valor)) },
       { titulo: '', f: a => a.criado_por === perfil.email || a.quem === perfil.email ? h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => {
         if (!(await confirmar('Excluir depósito?', `Excluir ${brl(a.valor)} de ${fmtData(a.data)}?`, 'Excluir', true))) return;
-        try { await DEL('/api/aportes/' + a.id); toast('Depósito excluído.'); m.fechar(); aoSalvar && aoSalvar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) : '' }],
+        try { const rx = await DEL('/api/aportes/' + a.id); m.fechar(); aposExcluir(rx, 'Depósito excluído.', aoSalvar); aoSalvar && aoSalvar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira')) : '' }],
       det.aportes, { vazio: 'Nenhum depósito registrado ainda.' })),
     botoes: [{ texto: 'Fechar', classe: 'sec', onclick: c => c() }] });
 }

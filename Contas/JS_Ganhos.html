@@ -2,7 +2,7 @@
 const __m_pages_ganhos = (() => {
 const { h, limpar, brl, hoje, lerValor, valorEdicao, primeiroNome, rotuloMes, rotuloMesCurto, somarMeses, ico } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, aposExcluir } = __m_ui;
 
 function formGanho(perfil, g, aoSalvar, mesVisto) {
   const novo = !g || !g.id, mesAtual = hoje().slice(0, 7); g = g || { tipo: 'FIXA', dia: 5, inicio: mesVisto || mesAtual };
@@ -54,7 +54,7 @@ async function render(alvo, { perfil }) {
       { titulo: 'Neste mês', f: x => x.situacao === 'ativo' ? h('span', { class: 'chip paga' }, 'entra') : x.situacao === 'futuro' ? 'começa ' + rotuloMesCurto(x.inicio) : 'encerrado' },
       { titulo: '', f: x => x.pessoa === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGanho(perfil, x, recarregar, mes) }, ico('editar')),
         x.tipo === 'FIXA' && x.situacao !== 'encerrado' ? h('button', { class: 'btn sec mini', type: 'button', onclick: () => encerrar(x, recarregar) }, 'Encerrar') : null,
-        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir ganho?', `Excluir "${x.descricao}" de todos os meses? Para parar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { await DEL('/api/rendas/' + x.id); toast('Ganho excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
+        h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir ganho?', `Excluir "${x.descricao}" de todos os meses? Para parar daqui pra frente, use "Encerrar".`, 'Excluir', true))) return; try { const rx = await DEL('/api/rendas/' + x.id); aposExcluir(rx, 'Ganho excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }];
     limpar(lista).append(h('div', { class: 'painel' }, h('h2', {}, 'Ganhos cadastrados'), h('p', { class: 'sub' }, 'Salário e outros ganhos que se repetem: "Todo mês". Extras: "Só um mês".'),
       tabela(cols, ativos, { vazio: 'Nenhum ganho cadastrado. Comece pelo salário de cada um.' }),
       antigos.length ? h('details', { style: { marginTop: '12px' } }, h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, `Encerrados e valores anteriores (${antigos.length})`), h('div', { style: { marginTop: '8px' } }, tabela(cols, antigos))) : null));

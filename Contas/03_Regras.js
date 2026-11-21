@@ -225,7 +225,7 @@ var R = (function () {
       var ps = parcelas(cp), rest = ps.filter(function (p) { return p.mes >= mes; }), car = cartoes[cp.cartao_id], atual = ps.filter(function (p) { return p.mes === mes; })[0];
       return { id: cp.id, cartao_id: cp.cartao_id, cartao: nomeCartao(car), titular: car.titular, titular_nome: P.nomeDe(car.titular), descricao: cp.descricao, data_compra: cp.data_compra,
         valor_total: cp.valor_total, parcelas: ps.length, parcela_atual: atual ? atual.n : null, valor_parcela: U.reais(ps[ps.length - 1].c), restantes: rest.length,
-        valor_restante: U.reais(rest.reduce(function (s, p) { return s + p.c; }, 0)), ultima_fatura: ultimaFatura(cp), ultima_rotulo: U.rotuloMes(ultimaFatura(cp)), divisao: cp.divisao, divisao_rotulo: rotuloDivisao(cp.divisao, car.titular) };
+        valor_restante: U.reais(rest.reduce(function (s, p) { return s + p.c; }, 0)), ultima_fatura: ultimaFatura(cp), ultima_rotulo: U.rotuloMes(ultimaFatura(cp)), minha_parte_parcela: U.reais(minhaParte({ c: ps[ps.length - 1].c, t: ps[ps.length - 1].t, pagador: car.titular, divisao: cp.divisao }, ve)), divisao: cp.divisao, divisao_rotulo: rotuloDivisao(cp.divisao, car.titular) };
     }).sort(function (a, b) { return ORD_TXT_(a.ultima_fatura, b.ultima_fatura) || ORD_PT_(a.descricao, b.descricao); });
   }
   /** Comprometimento das próximas faturas, por pessoa (soma de todos os cartões de cada um). */

@@ -61,7 +61,9 @@ function leiaMe_(ss) {
     [''],
     ['• NOTIFICACOES: avisos para o(a) parceiro(a) quando uma compra ou pix dividido é lançado, alterado ou excluído (lida_em vazio = ainda não vista).'],
     [''],
-    ['Abas: USUARIOS · CARTOES · COMPRAS_CARTAO · FATURAS · GASTOS_PIX_DEBITO · RECORRENTES · GANHOS · METAS · META_APORTES · ACERTOS · LIMITES · NOTIFICACOES · AUDITORIA · CONFIG']
+    ['• PAGAMENTOS_FIXOS (V1.5): gastos fixos de pix/débito marcados como pagos na tela Vencimentos (id = gasto fixo|mês). CONFIG guarda também o teto do mês de cada pessoa (orcamento|e-mail), os meses fechados (fechado|AAAA-MM) e as assinaturas ignoradas.'],
+    [''],
+    ['Abas: USUARIOS · CARTOES · COMPRAS_CARTAO · FATURAS · GASTOS_PIX_DEBITO · RECORRENTES · GANHOS · METAS · META_APORTES · ACERTOS · LIMITES · NOTIFICACOES · PAGAMENTOS_FIXOS · AUDITORIA · CONFIG']
   ];
   sh.getRange(1, 1, linhas.length, 1).setValues(linhas).setWrap(true); sh.setColumnWidth(1, 900); sh.getRange(1, 1).setFontWeight('bold').setFontSize(14).setFontColor(CABECALHO_COR_);
 }

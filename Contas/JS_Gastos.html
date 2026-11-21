@@ -2,22 +2,23 @@
 const __m_pages_gastos = (() => {
 const { h, limpar, brl, fmtDataCurta, hoje, lerValor, valorEdicao, primeiroNome, iniciais, ico } = __m_util;
 const { GET, POST, PUT, DEL, carregarDominios } = __m_api;
-const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, chipForma, opcoesDivisao, campoCategoria } = __m_ui;
+const { cabPagina, seletorMes, tabela, modal, confirmar, toast, campo, select, segmentos, chipDivisao, chipForma, opcoesDivisao, campoCategoria, aposExcluir, ligarSugestao, barraFiltro } = __m_ui;
 
 async function formGasto(perfil, gasto, aoSalvar) {
-  const dom = await carregarDominios(), novo = !gasto; gasto = gasto || { data: hoje(), forma: 'PIX', divisao: 'DIVIDIDO' };
+  const dom = await carregarDominios(), modelo = !!(gasto && gasto._modelo), novo = !gasto || modelo; gasto = gasto || { data: hoje(), forma: 'PIX', divisao: 'DIVIDIDO' };   // V1.5: _modelo = "lançar de novo" (novo gasto já preenchido)
   const data = h('input', { type: 'date', value: gasto.data }), desc = h('input', { type: 'text', value: gasto.descricao || '', maxlength: 120, placeholder: 'ex.: Feira, Farmácia, Conta de luz…' });
-  const valor = h('input', { type: 'text', inputmode: 'decimal', value: novo ? '' : valorEdicao(gasto.valor), placeholder: '0,00' });
+  const valor = h('input', { type: 'text', inputmode: 'decimal', value: gasto.valor != null && gasto.valor !== '' ? valorEdicao(gasto.valor) : '', placeholder: '0,00' });
   const forma = segmentos([{ value: 'PIX', label: 'Pix' }, { value: 'DEBITO', label: 'Débito' }, { value: 'DINHEIRO', label: 'Dinheiro' }], gasto.forma);
   const info = h('div', { class: 'dica' }), divisao = segmentos(opcoesDivisao(perfil), gasto.divisao, () => atualizar());
   const cat = campoCategoria(dom, gasto.categoria), obs = h('input', { type: 'text', value: gasto.obs || '', maxlength: 300 }), msg = h('div', { class: 'erro-txt', role: 'alert' });
   const outro = perfil.parceiro ? perfil.parceiro.apelido : 'a outra pessoa';
+  ligarSugestao(desc, cat, dom);
   function atualizar() {
     const v = lerValor(valor.value), d = divisao.valor();
     info.textContent = isNaN(v) || !v ? '' : d === 'DIVIDIDO' ? `${outro} vai te dever ${brl(Math.round(v * 50) / 100)} (metade).` : d === 'OUTRO' ? `${outro} vai te dever ${brl(v)} (o valor inteiro).` : 'Não entra no acerto: é só seu.';
   }
   valor.addEventListener('input', atualizar); atualizar();
-  modal({ titulo: novo ? 'Novo gasto no pix / débito' : 'Editar gasto', corpo: h('div', {},
+  modal({ titulo: modelo ? 'Lançar de novo' : novo ? 'Novo gasto no pix / débito' : 'Editar gasto', corpo: h('div', {},
     h('div', { class: 'aviso info', style: { marginTop: '12px' } }, ico('usuario'), ' Pago por ', h('b', {}, novo ? 'você (' + perfil.nome + ')' : gasto.pago_por_nome), ' — quem lança é quem pagou.'),
     h('div', { class: 'form-grade' }, campo('Descrição', desc, { obrig: true, classe: 'cheia' }), campo('Valor (R$)', valor, { obrig: true }), campo('Data', data, { obrig: true }),
       campo('Forma de pagamento', forma.el, { obrig: true }), campo('Categoria', cat)),
@@ -116,15 +117,22 @@ async function render(alvo, { perfil, dom }) {
     limpar(resumo).append(h('div', { class: 'kpis' }, r.totais.slice().sort((a, b) => (b.email === perfil.email) - (a.email === perfil.email)).map((t, i) => h('div', { class: 'kpi' + (i === 1 ? ' b' : '') },
       h('div', { class: 'r' }, t.email === perfil.email ? 'Você pagou' : primeiroNome(t.nome) + ' pagou (dividido com você)'), h('div', { class: 'v' }, brl(t.total == null ? t.compartilhado : t.total)),
       h('div', { class: 'd' }, t.total == null ? `você deve ${brl(t.receber)} desses gastos` : `${brl(t.compartilhado)} dividido · a receber ${brl(t.receber)}`)))));
-    const total = r.itens.reduce((s, g) => s + Number(g.valor), 0);
-    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Lançamentos de ' + r.rotulo), h('p', { class: 'sub' }, r.itens.length + ' gasto(s)')), filtro.el),
-      tabela([{ titulo: 'Data', f: g => fmtDataCurta(g.data) }, { titulo: 'Descrição', f: g => h('div', {}, g.descricao, g.recorrente ? h('span', { class: 'chip fixo', style: { marginLeft: '6px' } }, ico('repetir'), 'fixo') : null, g.categoria || g.obs ? h('div', { class: 'sec-txt' }, [g.categoria, g.obs].filter(Boolean).join(' · ')) : null) },
+    // V1.5: filtros (texto, categoria, divisão) com o total do que está filtrado
+    const fb = barraFiltro({ itens: r.itens, perfil, aoMudar: () => desenhar() }), caixa = h('div', {}), subt = h('p', { class: 'sub' });
+    limpar(lista).append(h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Lançamentos de ' + r.rotulo), subt), filtro.el), r.itens.length > 3 ? fb.el : null, caixa));
+    function desenhar() {
+      const its = fb.aplicar(r.itens), total = its.reduce((s, g) => s + Number(g.valor), 0), filt = fb.ativo();
+      subt.textContent = filt ? `${its.length} de ${r.itens.length} gasto(s) · filtrado: ${brl(total)}` : r.itens.length + ' gasto(s)';
+      limpar(caixa).append(tabela([{ titulo: 'Data', f: g => fmtDataCurta(g.data) }, { titulo: 'Descrição', f: g => h('div', {}, g.descricao, g.recorrente ? h('span', { class: 'chip fixo', style: { marginLeft: '6px' } }, ico('repetir'), 'fixo') : null, g.categoria || g.obs ? h('div', { class: 'sec-txt' }, [g.categoria, g.obs].filter(Boolean).join(' · ')) : null) },
         { titulo: 'Forma', f: g => chipForma(g.forma) }, { titulo: 'Pago por', f: g => h('span', { title: g.pago_por_nome }, g.pago_por === perfil.email ? 'Você' : primeiroNome(g.pago_por_nome)) },
         { titulo: 'Divisão', f: g => chipDivisao(g.divisao, g.divisao_rotulo) }, { titulo: 'Valor', num: true, f: g => brl(g.valor) }, { titulo: 'Outro deve', num: true, f: g => g.parte_outro ? brl(g.parte_outro) : '—' },
         { titulo: '', f: g => g.recorrente ? (g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar gasto fixo', onclick: () => __m_pages_fixos.abrirRecorrente(g.id, perfil, recarregar, mesAtual) }, ico('editar'))) : '')
           : g.pago_por === perfil.email ? h('div', { class: 'acoes-linha' }, h('button', { class: 'btn sec mini', type: 'button', title: 'Editar', onclick: () => formGasto(perfil, g, recarregar) }, ico('editar')),
-          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir gasto?', `Excluir "${g.descricao}" (${brl(g.valor)})?`, 'Excluir', true))) return; try { await DEL('/api/gastos/' + g.id); toast('Gasto excluído.'); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
-        r.itens, { vazio: 'Nenhum gasto em pix/débito neste mês.', rodape: ['', 'Total', '', '', '', brl(total), '', ''] })));
+          h('button', { class: 'btn sec mini', type: 'button', title: 'Lançar de novo (copia este gasto com a data de hoje)', 'aria-label': 'Lançar de novo', onclick: () => formGasto(perfil, { _modelo: true, data: hoje(), descricao: g.descricao, valor: g.valor, forma: g.forma, divisao: g.divisao, categoria: g.categoria, obs: g.obs }, recarregar) }, ico('copiar')),
+          h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { if (!(await confirmar('Excluir gasto?', `Excluir "${g.descricao}" (${brl(g.valor)})?`, 'Excluir', true))) return; try { const rx = await DEL('/api/gastos/' + g.id); aposExcluir(rx, 'Gasto excluído.', recarregar); recarregar(); } catch (e) { toast(e.message, true); } } }, ico('lixeira'))) : '' }],
+        its, { vazio: filt ? 'Nenhum gasto com esse filtro.' : 'Nenhum gasto em pix/débito neste mês.', rodape: ['', filt ? 'Total filtrado' : 'Total', '', '', '', brl(total), '', ''] }));
+    }
+    desenhar();
   }
   await carregar(sel.valor());
 }

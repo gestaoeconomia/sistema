@@ -39,6 +39,8 @@ var D = (function () {
     limites:   { aba: 'LIMITES',   cols: 'id:s dono:s categoria:s valor:n obs:s criado_em:s atualizado_em:s', cache: 1 },
     // V1.3: notificações para o(a) parceiro(a) (compras e pix/débito divididos lançados, alterados ou excluídos)
     notificacoes: { aba: 'NOTIFICACOES', cols: 'id:s para:s de:s tipo:s titulo:s texto:s rota:s query:s ref:s criado_em:s lida_em:s', cache: 1, compactavel: 1 },
+    // V1.5: gastos fixos de pix/débito/boleto marcados como pagos (um registro por gasto fixo e mês; id = REC-xxxx|AAAA-MM)
+    pagamentos: { aba: 'PAGAMENTOS_FIXOS', cols: 'id:s recorrente_id:s mes:s pago:n pago_em:s pago_por:s', cache: 1 },
     auditoria: { aba: 'AUDITORIA', cols: 'id:n quando:s usuario:s acao:s entidade:s entidade_id:s detalhe:s' },
     config:    { aba: 'CONFIG',    cols: 'chave:s valor:s', cache: 1 }
   };

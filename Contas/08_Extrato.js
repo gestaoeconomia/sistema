@@ -169,6 +169,7 @@ var EXT = (function () {
       var v; try { v = R.validarGasto(b); } catch (e) { throw erro_(400, 'Linha ' + (i + 1) + ' (' + U.texto(b.descricao, 40) + '): ' + e.message); }
       v.ref_externa = ref; v.pago_por = perfil.email; v.criado_por = perfil.email; v.criado_em = agora; if (ref) refs[ref] = 1; out.push(v);
     });
+    var mesesX = []; out.forEach(function (v) { var m = String(v.data).slice(0, 7); if (mesesX.indexOf(m) < 0) mesesX.push(m); }); FECH.exigirAbertos(mesesX, 'Importar estes lançamentos');   // V1.5
     var ids = D.reservarIds('GAS', out.length, 6); out.forEach(function (v, i) { v.id = ids[i]; });   // V1.4: uma reserva só
     if (out.length) { D.inserirVarios('gastos', out); NT.lote(perfil, 'gasto', out, 'do extrato importado'); }
     D.auditar(perfil.email, 'Importou ' + out.length + ' gastos do extrato', 'gastos', out.map(function (v) { return v.id; }).join(',').slice(0, 900), { arquivo: U.texto(body.arquivo, 120), pulados: pular });

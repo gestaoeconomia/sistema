@@ -23,9 +23,11 @@ var A = (function () {
   function ler(k) { return D.prop(k); }
   function gravar(k, v) { props().setProperty(k, v); D.propLocal(k, v); }
   function apagar(k) { props().deleteProperty(k); D.propLocal(k, null); }
-  var tokenAtual = '';
+  var tokenAtual = '', aparelho = '';
   /** Chave de sessão enviada pelo navegador nesta chamada (definida pelo api() em 01_Web.js). */
   function usarToken(t) { tokenAtual = typeof t === 'string' && t.length >= 60 && t.length <= 200 ? t : ''; esquecerPerfil(); }
+  /** V1.5: identificador aleatório do navegador (não é segredo): os limites de tentativas passam a valer por aparelho. */
+  function usarAparelho(dv) { aparelho = typeof dv === 'string' && /^[A-Za-z0-9_-]{12,64}$/.test(dv) ? dv : ''; }
   var chaveMemo = {};
   function chaveSessao(t) { t = t === undefined ? tokenAtual : t; if (!t) return ''; return chaveMemo[t] || (chaveMemo[t] = 'cc_sess_v2_' + hash('sessao:' + t)); }
   /** Chave do cache que esta requisição vai precisar para identificar quem chama (entra na ida única ao cache do api()). */
@@ -106,8 +108,12 @@ var A = (function () {
   function entrar(email, senha, manter) {
     email = String(email || '').trim().toLowerCase();
     if (!P.emailValido(email) || typeof senha !== 'string' || !senha || senha.length > 4096) throw erro_(400, 'Confira seu e-mail e sua senha.');
-    limitarFrequencia('entrar', 'todos', 60, 900, 'Muitas tentativas de entrada. Aguarde alguns minutos.');
-    limitarFrequencia('senha_conta', email, 20, 900, 'Muitas tentativas para este e-mail. Aguarde 15 minutos e tente novamente.');
+    // V1.5: o limite geral (todos juntos) deixava qualquer pessoa de fora travar a entrada do casal errando a senha de propósito.
+    // Agora: por aparelho (15 em 15 min), por e-mail neste aparelho (10) e um teto alto por e-mail (60) e geral (400) — a força bruta continua impraticável.
+    limitarFrequencia('entrar_ap', aparelho || 'sem-aparelho', aparelho ? 15 : 30, 900, 'Muitas tentativas de entrada neste aparelho. Aguarde 15 minutos.');
+    limitarFrequencia('senha_ap', email + '|' + (aparelho || '-'), 10, 900, 'Muitas tentativas para este e-mail neste aparelho. Aguarde 15 minutos e tente novamente.');
+    limitarFrequencia('senha_conta', email, 60, 900, 'Muitas tentativas para este e-mail. Aguarde 15 minutos e tente novamente.');
+    limitarFrequencia('entrar', 'todos', 400, 900, 'Muitas tentativas de entrada. Aguarde alguns minutos.');
     var u = usuarioAtivo(email);
     if (!u || !confereSenha(email, senha)) throw erro_(401, 'E-mail ou senha não conferem.');
     var sessao = cacheSessao(email); registrarEntrada(u); esquecerPerfil();
@@ -180,7 +186,13 @@ var A = (function () {
 
   // ---------- cadastro ----------
   function permitidos() { return String(ler('EMAILS_PERMITIDOS') || '').split(/[,;\s]+/).map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean); }
-  function cadastroAberto() { return P.ativos().length < APP.MAX_USUARIOS; }
+  // V1.5: o cadastro fecha quando existem 2 contas — mesmo que uma seja desativada depois (antes, desativar reabria o cadastro para qualquer e-mail).
+  // Para trocar uma das pessoas, informe os e-mails em EMAILS_DO_CASAL e rode instalar().
+  function cadastroAberto() {
+    var lista = permitidos(), todos = D.todos('usuarios');
+    if (lista.length) return lista.some(function (e) { return !todos.some(function (u) { return String(u.email).toLowerCase() === e; }); }) && P.ativos().length < APP.MAX_USUARIOS;
+    return todos.length < APP.MAX_USUARIOS;
+  }
   function cadastrar(b) {
     limitarFrequencia('cadastro', 'todos', 8, 3600);
     var email = String(b.email || '').trim().toLowerCase(), nome = U.texto(b.nome, 80);
@@ -192,13 +204,15 @@ var A = (function () {
     if (!cadastroAberto()) throw erro_(403, 'O cadastro está fechado: o app já tem as duas contas do casal.');
     var lista = permitidos(); if (lista.length && lista.indexOf(email) < 0) throw erro_(403, 'Este e-mail não está autorizado a se cadastrar neste app.');
     D.inserir('usuarios', { email: email, nome: nome, ativo: 1, criado_em: D.agoraISO(), ultimo_acesso: '' });
+    // V1.5: com as 2 contas criadas, a lista de e-mails autorizados fica gravada (sem depender de EMAILS_DO_CASAL no editor)
+    if (!lista.length && D.todos('usuarios').length >= APP.MAX_USUARIOS) { var dois = D.todos('usuarios').map(function (u) { return String(u.email).toLowerCase(); }); gravar('EMAILS_PERMITIDOS', dois.join(',')); D.auditar('sistema', 'Travou o cadastro nos e-mails do casal', 'usuarios', '', { emails: dois.length }); }
     guardarSenha(email, b.senha);
     D.auditar(email, 'Criou a conta', 'usuarios', email, { nome: nome });
     return { ok: true, mensagem: 'Conta criada. Agora é só entrar com seu e-mail e senha.' };
   }
 
   return {
-    usarToken: usarToken, chavesCache: chavesCache, temSenhaLocal: temSenhaLocal, perfilAtual: perfilAtual, esquecerPerfil: esquecerPerfil, entrar: entrar, retomar: retomar, sair: sair,
+    usarToken: usarToken, usarAparelho: usarAparelho, chavesCache: chavesCache, temSenhaLocal: temSenhaLocal, perfilAtual: perfilAtual, esquecerPerfil: esquecerPerfil, entrar: entrar, retomar: retomar, sair: sair,
     alterarSenha: alterarSenha, redefinirSenhaDoParceiro: redefinirSenhaDoParceiro, definirSenhaPeloEditor: definirSenhaPeloEditor, revogarSessoes: revogarSessoes,
     cadastrar: cadastrar, cadastroAberto: cadastroAberto, limitarFrequencia: limitarFrequencia, hash: hash
   };

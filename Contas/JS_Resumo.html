@@ -2,7 +2,7 @@
 const __m_pages_resumo = (() => {
 const { h, limpar, brl, fmtData, rotuloMesCurto, iniciais, primeiroNome, ico, lerValor, valorEdicao } = __m_util;
 const { GET, POST, PUT, DEL, estado } = __m_api;
-const { cabPagina, seletorMes, modal, toast, campo } = __m_ui;
+const { cabPagina, seletorMes, modal, toast, campo, aposExcluir, confirmar } = __m_ui;
 
 /** Frase do acerto do ponto de vista de quem está logado. */
 function fraseAcerto(ac, perfil, valor) {
@@ -19,8 +19,40 @@ function blocoAcerto(r, perfil, ir) {
   if (!ac.devido && !ac.pendente) { frase = ['Nada a acertar neste mês']; detalhe = 'Ainda não há gastos divididos, ou os dois lados se compensam.'; zerado = true; }
   else if (!ac.pendente) { frase = ['Contas acertadas ', h('span', { class: 'valor' }, '✓')]; detalhe = `O saldo de ${brl(ac.devido)} já foi acertado.`; zerado = true; }
   else { frase = fraseAcerto(ac.pendente, perfil, ac.pendente.valor); detalhe = ac.pago ? `Saldo do mês: ${brl(ac.devido)} · já acertado: ${brl(ac.pago)}.` : 'Soma das faturas que vencem no mês + pix/débito do mês — só o que foi dividido.'; }
-  return h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Acerto de ' + r.rotulo), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, detalhe)),
+  return h('div', { class: 'destaque' + (zerado ? ' zerado' : '') }, h('div', { class: 'txt' }, h('div', { class: 'r' }, 'Acerto de ' + r.rotulo, r.fechado ? h('span', { class: 'chip fechado', title: 'Mês fechado por ' + primeiroNome(r.fechado.por_nome) }, ico('cadeado'), ' fechado') : null), h('div', { class: 'frase' }, frase), h('div', { class: 'd' }, detalhe)),
     h('button', { class: 'btn', type: 'button', onclick: () => ir('acerto') }, ico('balanca'), 'Ver acerto do mês'));
+}
+/**
+ * V1.5: previsão do fim do mês (mês atual) e teto geral de gastos do mês. Só você vê.
+ * Previsão = o que já está no mês + pix/débito do dia a dia no ritmo atual + compras novas que ainda entram na fatura deste mês.
+ */
+function previsaoETeto(pn, recarregar) {
+  const pv = pn.previsao, tt = pn.teto; if (!pv && !tt) return h('div', { class: 'painel previsao vazio-prev' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Teto do mês'), h('p', { class: 'sub' }, 'Defina quanto quer gastar no total por mês (a sua parte). O app avisa aos 80% e aos 100%.')),
+    h('button', { class: 'btn sec', type: 'button', onclick: () => definirTeto(null, recarregar) }, ico('alvo'), 'Definir teto')));
+  const renda = pn.voce.renda, ant = pn.comparacao.gasto_anterior;
+  const blocoPrev = pv ? h('div', { class: 'prev-num' }, h('div', { class: 'r' }, 'Previsão para o fim de ' + pn.rotulo.split(' de ')[0]), h('div', { class: 'v' }, '≈ ' + brl(pv.previsto)),
+    h('div', { class: 'd' }, `já lançado ${brl(pv.lancado)}` + (pv.estimado_pix > 0 ? ` · pix/débito ${pv.base_pix === 'ritmo' ? 'no ritmo do mês' : 'pela média'} +${brl(pv.estimado_pix)}` : '') + (pv.estimado_cartao > 0 ? ` · compras que ainda entram na fatura +${brl(pv.estimado_cartao)}` : '')),
+    h('div', { class: 'd' }, [ant > 0 ? `${pv.previsto > ant ? '▲' : '▼'} ${brl(Math.abs(pv.previsto - ant))} em relação a ${pn.comparacao.rotulo_anterior.split(' de ')[0]}` : null, renda > 0 ? `${String(Math.round(pv.previsto / renda * 1000) / 10).replace('.', ',')}% dos seus ganhos` : null, `faltam ${pv.restantes} dia(s)`].filter(Boolean).join(' · '))) : null;
+  let blocoTeto = null;
+  if (tt) {
+    const pct = Math.min(100, tt.pct), pp = tt.previsto_pct == null ? null : Math.min(100, tt.previsto_pct), cor = tt.nivel === 'estourou' ? 'vermelho' : tt.nivel === 'atencao' || tt.nivel === 'previsao' ? 'ambar' : 'verde';
+    blocoTeto = h('div', { class: 'teto' }, h('div', { class: 'teto-cab' }, h('b', {}, 'Teto do mês: ' + brl(tt.teto)), h('button', { class: 'btn sec mini', type: 'button', onclick: () => definirTeto(tt.teto, recarregar) }, ico('editar'), 'Alterar')),
+      h('div', { class: 'barra-teto ' + cor, title: `Gasto ${brl(tt.gasto)} de ${brl(tt.teto)}` }, h('i', { style: { width: pct + '%' } }), pp != null && pp > pct ? h('b', { class: 'marca-prev', style: { left: pp + '%' }, title: 'Previsão' }) : null),
+      h('div', { class: 'd' }, tt.nivel === 'estourou' ? `Passou do teto em ${brl(-tt.resta)} (${String(tt.pct).replace('.', ',')}%).` : `${String(tt.pct).replace('.', ',')}% usado · restam ${brl(tt.resta)}` + (tt.previsto_pct != null ? ` · previsão: ${String(tt.previsto_pct).replace('.', ',')}%` + (tt.previsto_pct >= 100 ? ' — no ritmo atual, vai passar do teto' : '') : '')));
+  } else blocoTeto = h('div', { class: 'teto' }, h('button', { class: 'btn sec mini', type: 'button', onclick: () => definirTeto(null, recarregar) }, ico('alvo'), 'Definir um teto para o mês'));
+  return h('div', { class: 'painel previsao' }, h('h2', {}, pv ? 'Como o mês deve terminar' : 'Teto do mês'), blocoPrev, blocoTeto);
+}
+function definirTeto(atual, recarregar) {
+  const v = h('input', { type: 'text', inputmode: 'decimal', value: atual ? valorEdicao(atual) : '', placeholder: '0,00' }), msg = h('div', { class: 'erro-txt', role: 'alert' });
+  modal({ titulo: 'Teto de gastos do mês', corpo: h('div', {}, h('p', { class: 'dica' }, 'Quanto você quer gastar no total por mês — a sua parte de cartões, pix/débito e gastos fixos (já contando o acerto). Vale para todos os meses. Só você vê.'),
+    campo('Teto por mês (R$)', v, { dica: 'Deixe vazio para tirar o teto.' }), msg),
+    botoes: [{ texto: 'Cancelar', classe: 'sec', onclick: c => c() }, { texto: 'Salvar', onclick: async c => { msg.textContent = ''; const n = v.value.trim() ? lerValor(v.value) : ''; if (n !== '' && (isNaN(n) || n <= 0)) { msg.textContent = 'Informe um valor válido.'; return; }
+      try { await PUT('/api/orcamento', { valor: n }); c(); toast(n ? 'Teto definido.' : 'Teto removido.'); recarregar && recarregar(); } catch (e) { msg.textContent = e.message; } } }] });
+}
+/** V1.5: assinaturas que subiram de preço (detectadas nos lançamentos repetidos). */
+function avisoAssinaturas(pn, ir) {
+  const a = pn.assinaturas; if (!a || !a.aumentos.length) return null;
+  return h('div', { class: 'aviso atencao' }, ico('alerta'), ' ', a.aumentos.map(x => `${x.descricao} subiu de ${brl(x.de)} para ${brl(x.para)}`).join(' · ') + '. ', h('a', { href: '#/fixos' }, 'Ver assinaturas'));
 }
 /** Seu orçamento: seus ganhos → sua parte dos gastos → sua parte nas metas → disponível. (Privado: o outro não vê.) */
 function orcamento(pn, ir) {
@@ -98,7 +130,7 @@ async function gerenciarLimites(aoSalvar) {
         const v = h('input', { type: 'text', inputmode: 'decimal', value: valorEdicao(l.teto), 'aria-label': 'Teto de ' + l.categoria, style: { width: '110px' } });
         return [h('span', {}, l.categoria, h('span', { class: 'dica' }, ` · gasto ${brl(l.gasto)} (${String(l.pct).replace('.', ',')}%)`)),
           h('span', { class: 'acoes-linha' }, v, h('button', { class: 'btn sec mini', type: 'button', title: 'Salvar', onclick: () => { const x = lerValor(v.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(l.id, { valor: x }); } }, ico('ok')),
-            h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { try { await DEL('/api/limites/' + l.id); toast('Limite excluído.'); desenhar(); } catch (e) { msg.textContent = e.message; } } }, ico('lixeira')))];
+            h('button', { class: 'btn perigo mini', type: 'button', title: 'Excluir', onclick: async () => { try { const rx = await DEL('/api/limites/' + l.id); aposExcluir(rx, 'Limite excluído.', desenhar); desenhar(); } catch (e) { msg.textContent = e.message; } } }, ico('lixeira')))];
       })) : null,
       h('div', { class: 'form-grade', style: { marginTop: '14px' } }, campo('Categoria', h('div', {}, cat, h('datalist', { id: listaId }, r.categorias.map(c => h('option', { value: c })))), { obrig: true }), campo('Teto por mês (R$)', val, { obrig: true })),
       h('div', { class: 'acoes-linha' }, h('button', { class: 'btn', type: 'button', onclick: () => { const x = lerValor(val.value); if (isNaN(x) || x <= 0) { msg.textContent = 'Informe o teto.'; return; } salvar(null, { categoria: cat.value, valor: x }); } }, ico('mais'), 'Adicionar limite')), msg);
@@ -165,9 +197,10 @@ function categorias(pn) {
       h('div', { class: 'dica', style: { marginTop: '6px' } }, 'Dica: preencha a categoria ao lançar para este quadro ficar mais útil.')) : h('div', { class: 'vazio' }, 'Ainda não há gastos neste mês.'));
 }
 function contasDoMes(pn, perfil) {
-  return h('div', { class: 'painel' }, h('h2', {}, 'Suas contas do mês'), h('p', { class: 'sub' }, 'Suas faturas que vencem e seus gastos fixos de pix/débito.'),
+  return h('div', { class: 'painel' }, h('div', { class: 'titulo-painel' }, h('div', {}, h('h2', {}, 'Suas contas do mês'), h('p', { class: 'sub' }, 'Suas faturas que vencem e seus gastos fixos de pix/débito.')),
+      h('a', { class: 'btn sec mini', href: '#/vencimentos?mes=' + pn.mes }, ico('calendario'), 'Vencimentos')),
     pn.contas.length ? h('div', { class: 'linhas' }, pn.contas.map(x => [h('span', {}, fmtData(x.data).slice(0, 5), ' · ', x.descricao, h('span', { class: 'dica' }, ' · ' + (x.dono === perfil.email ? 'você' : primeiroNome(x.dono_nome))), ' ',
-      h('span', { class: 'chip ' + (x.paga ? 'paga' : 'aberta') }, x.tipo === 'FATURA' ? (x.paga ? 'paga' : 'em aberto') : (x.paga ? 'já passou' : 'a vencer'))), h('span', {}, brl(x.valor))])) : h('div', { class: 'vazio' }, 'Nenhuma conta neste mês.'));
+      h('span', { class: 'chip ' + (x.paga ? 'paga' : 'aberta') }, x.tipo === 'FATURA' ? (x.paga ? 'paga' : 'em aberto') : (x.paga ? 'pago' : 'a pagar'))), h('span', {}, brl(x.valor))])) : h('div', { class: 'vazio' }, 'Nenhuma conta neste mês.'));
 }
 function proximoMes(pn, r) {
   const cmp = pn.comparacao, pr = pn.proximo;
@@ -196,6 +229,8 @@ async function render(alvo, { perfil, ir }) {
     const minhas = ((r.pessoas.find(p => p.email === perfil.email) || {}).faturas || []).filter(f => f.total > 0 || f.paga);
     limpar(corpo).append(...[
       orcamento(pn, ir),
+      previsaoETeto(pn, () => carregar(sel.valor())),
+      avisoAssinaturas(pn, ir),
       blocoAcerto(r, perfil, ir),
       r.aberto && (r.aberto.valor !== r.acerto.restante_abs || !r.acerto.pendente || r.aberto.devedor.email !== r.acerto.pendente.devedor.email) ? h('div', { class: 'aviso atencao' }, ico('alerta'), ` Somando todos os meses, ${primeiroNome(r.aberto.devedor.nome)} ainda deve ${brl(r.aberto.valor)} a ${primeiroNome(r.aberto.credor.nome)}. `, h('a', { href: '#/acerto' }, 'Ver histórico')) : null,
       pn.tem_rendas ? h('div', { class: 'pessoas' }, cartaoVoce(pn, perfil, minhas, ir), cartaoCasal(pn, ir)) : null,

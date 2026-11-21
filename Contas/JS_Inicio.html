@@ -1,16 +1,19 @@
 <script>/* main */
 const __m_main = (() => {
-const { h, ico, limpar, qs, iniciais, primeiroNome } = __m_util;
+const { h, ico, limpar, qs, iniciais, primeiroNome, modoDiscreto, definirDiscreto } = __m_util;
 const { GET, POST, estado, definirAoExpirar, carregarDominios, definirSessao, lerSessao, lerManter, definirManter, retomarSilencioso } = __m_api;
 const { toast, campo } = __m_ui;
 const ROTAS = {
   resumo: { titulo: 'Início', icone: 'home', grupo: 'Visão geral', cor: '#0E4D5B', mod: () => __m_pages_resumo },
   acerto: { titulo: 'Acerto do mês', icone: 'balanca', grupo: 'Visão geral', cor: '#5E5CE6', mod: () => __m_pages_acerto },
+  vencimentos: { titulo: 'Vencimentos', icone: 'calendario', grupo: 'Visão geral', cor: '#FF2D55', mod: () => __m_pages_vencimentos },   // V1.5
+  busca: { titulo: 'Buscar', icone: 'lupa', grupo: 'Visão geral', cor: '#007AFF', mod: () => __m_pages_busca },   // V1.5
   faturas: { titulo: 'Cartões e faturas', icone: 'cartao', grupo: 'Lançamentos', cor: '#F28C38', mod: () => __m_pages_faturas },
   gastos: { titulo: 'Pix e débito', icone: 'pix', grupo: 'Lançamentos', cor: '#30B0C7', mod: () => __m_pages_gastos },
   fixos: { titulo: 'Gastos fixos', icone: 'repetir', grupo: 'Lançamentos', cor: '#AF52DE', mod: () => __m_pages_fixos },
   ganhos: { titulo: 'Ganhos', icone: 'carteira', grupo: 'Planejamento', cor: '#34C759', mod: () => __m_pages_ganhos },
   metas: { titulo: 'Metas', icone: 'alvo', grupo: 'Planejamento', cor: '#FF3B30', mod: () => __m_pages_metas },
+  categorias: { titulo: 'Categorias', icone: 'etiqueta', grupo: 'Planejamento', cor: '#A2845E', mod: () => __m_pages_categorias },   // V1.5
   conta: { titulo: 'Minha conta', icone: 'usuario', grupo: 'Conta', cor: '#8E8E93', mod: () => __m_pages_conta },
   conferencia: { titulo: 'Conferência dos dados', icone: 'escudo', grupo: 'Conta', cor: '#FF9F0A', mod: () => __m_pages_conferencia },
   historico: { titulo: 'Histórico de alterações', icone: 'relogio', grupo: 'Conta', cor: '#636366', mod: () => __m_pages_historico },
@@ -142,9 +145,14 @@ function desenharShell() {
   const trilha = h('div', { class: 'trilha' }), conteudo = h('div', { class: 'conteudo', id: 'conteudo' });
   const sino = montarSino();
   const depoisDeLancar = () => { if (rotaAtual) rotear(); atualizarAvisos(true); };
+  // V1.5: modo discreto — esconde os valores (ex.: ao abrir o app em público); a escolha fica neste aparelho
+  const olho = h('button', { class: 'btn sec mini so-icone olho', type: 'button', 'data-sem-trava': '1', onclick: () => { definirDiscreto(!modoDiscreto()); pintarOlho(); toast(modoDiscreto() ? 'Valores escondidos neste aparelho.' : 'Valores à mostra.'); if (rotaAtual) rotear(); } });
+  const pintarOlho = () => { limpar(olho).append(ico(modoDiscreto() ? 'olhoX' : 'olho')); olho.title = modoDiscreto() ? 'Mostrar os valores' : 'Esconder os valores (modo discreto)'; olho.setAttribute('aria-label', olho.title); olho.setAttribute('aria-pressed', String(modoDiscreto())); };
+  pintarOlho(); definirDiscreto(modoDiscreto());
   const sair = h('button', { class: 'btn sec mini sair', type: 'button', title: 'Sair', onclick: async () => { const t = lerManter(); definirManter(''); esquecerAparelho(); try { await POST('/api/auth/sair', { token: t }); } catch (_) {} definirSessao(''); estado.perfil = null; estado.dominios = null; location.hash = '#/login'; rotear(); } }, ico('sair'), h('span', { class: 'txt' }, 'Sair'));
   const main = h('div', { class: 'principal' }, h('div', { class: 'topo' }, h('button', { class: 'btn sec mini menu-btn', type: 'button', 'aria-label': 'Abrir menu', onclick: () => abrirMenu() }, ico('menu')), trilha,
-      sino.el,
+      h('button', { class: 'btn sec mini so-icone', type: 'button', title: 'Buscar lançamentos', 'aria-label': 'Buscar lançamentos', onclick: () => ir('busca') }, ico('lupa')),
+      olho, sino.el,
       h('button', { class: 'btn mini pix', type: 'button', title: 'Novo gasto no pix/débito', onclick: () => __m_pages_gastos.formGasto(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Pix')),
       h('button', { class: 'btn mini', type: 'button', title: 'Nova compra no cartão', onclick: () => __m_pages_faturas.formCompra(p, null, depoisDeLancar) }, ico('mais'), h('span', { class: 'txt' }, 'Cartão')), sair),
     conteudo, h('footer', { class: 'rodape' }, 'Gestão Financeira ' + (window.APP_VERSAO || '')));
